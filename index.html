@@ -502,6 +502,67 @@ const FB_PROJECT = 'appferrauto-o-s';
 const FB_KEY = 'AIzaSyDIyLi1dQu2d7jEYZmgsPk5wq78qc-wo6c';
 const FB_BASE = 'https://firestore.googleapis.com/v1/projects/' + FB_PROJECT + '/databases/(default)/documents';
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const TGA_BASE = 'https://api.tgasistemas.com.br/v1';
+const TGA_TOKEN = '0api1f750acac55fc3dbb0826df10f9228865a04c7cb25bf4a5708c17eae7a4e691bc6f19525c90f568536b9177f139cac44';
+const TGA_TIPO_OS = '2.4.01';
+
+// ===== TGA INTEGRATION =====
+async function tgaGetToken(){
+  const resp = await fetch(TGA_BASE+'/usuarios-api/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({login:'c10515', senha:'027347'})
+  });
+  if(!resp.ok) throw new Error('TGA login falhou: '+resp.status);
+  const data = await resp.json();
+  return data.token || data.access_token || data.jwt || '';
+}
+
+async function tgaEnviarOS(os, idFirebase){
+  try{
+    // 1. Autenticar no TGA
+    const token = await tgaGetToken();
+    if(!token) throw new Error('Token TGA não obtido');
+
+    // 2. Criar movimento (OS) no TGA
+    const movimento = {
+      tipo: TGA_TIPO_OS,
+      cliente: os.cliente,
+      telefone: os.telefone||'',
+      observacao: 'OS #'+os.numero+' | Placa: '+os.placa+' | Modelo: '+(os.modelo||'')+' | Serviços: '+(os.servicos||[]).join(', ')+' | Atendente: '+(os.atendente||''),
+      valor_total: os.valor||0,
+      data_emissao: new Date().toISOString().split('T')[0],
+      itens:[{
+        descricao: (os.servicos||[]).join(', ') || os.descricao || 'Serviços de instalação',
+        quantidade: 1,
+        valor_unitario: os.valor||0,
+        valor_total: os.valor||0
+      }]
+    };
+
+    const respMov = await fetch(TGA_BASE+'/movimentos', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body: JSON.stringify(movimento)
+    });
+
+    if(respMov.ok){
+      const movData = await respMov.json();
+      const idmov = movData.id || movData.idmov || '';
+      if(idmov && idFirebase){
+        await fbUpdate(idFirebase, {tgaId: String(idmov)});
+      }
+      console.log('TGA: OS enviada, id:', idmov);
+      return idmov;
+    } else {
+      const err = await respMov.text();
+      console.error('TGA erro movimento:', respMov.status, err);
+    }
+  }catch(e){
+    console.error('TGA integração erro:', e.message);
+  }
+  return null;
+}
 
 // ===== USUARIOS =====
 const USUARIOS = {
@@ -1009,9 +1070,14 @@ async function salvarOS(){
       entradaISO:new Date().toISOString(),
       retornoDeOS:retornoDeOS||''
     };
-    await fbAdd(os);
+    const docSalvo = await fbAdd(os);
+    const idFirebase = docSalvo?.id || '';
+    // Enviar para TGA em background
+    tgaEnviarOS(os, idFirebase).then(idmov=>{
+      if(idmov) showToast('OS salva e enviada ao TGA!');
+    }).catch(()=>{});
     resetForm();
-    showToast('OS registrada com sucesso!');
+    showToast('OS registrada! Enviando ao TGA...');
     goTab('lista', document.querySelectorAll('.tab')[1]);
     setTimeout(()=>startPolling(),500);
   }catch(e){
