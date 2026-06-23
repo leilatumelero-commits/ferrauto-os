@@ -508,14 +508,7 @@ const TGA_TIPO_OS = '2.4.01';
 
 // ===== TGA INTEGRATION =====
 async function tgaGetToken(){
-  const resp = await fetch(TGA_BASE+'/usuarios-api/login', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({login:'c10515', senha:'027347'})
-  });
-  if(!resp.ok) throw new Error('TGA login falhou: '+resp.status);
-  const data = await resp.json();
-  return data.token || data.access_token || data.jwt || '';
+  return '0api1f750acac55fc3dbb0826df10f9228865a04c7cb25bf4a5708c17eae7a4e691bc6f19525c90f568536b9177f139cac44';
 }
 
 async function tgaEnviarOS(os, idFirebase){
@@ -546,8 +539,12 @@ async function tgaEnviarOS(os, idFirebase){
       body: JSON.stringify(movimento)
     });
 
+    const respTxt = await respMov.text();
+    console.log('TGA resposta status:', respMov.status);
+    console.log('TGA resposta body:', respTxt);
+
     if(respMov.ok){
-      const movData = await respMov.json();
+      const movData = JSON.parse(respTxt);
       const idmov = movData.id || movData.idmov || '';
       if(idmov && idFirebase){
         await fbUpdate(idFirebase, {tgaId: String(idmov)});
@@ -555,8 +552,7 @@ async function tgaEnviarOS(os, idFirebase){
       console.log('TGA: OS enviada, id:', idmov);
       return idmov;
     } else {
-      const err = await respMov.text();
-      console.error('TGA erro movimento:', respMov.status, err);
+      console.error('TGA erro movimento:', respMov.status, respTxt);
     }
   }catch(e){
     console.error('TGA integração erro:', e.message);
