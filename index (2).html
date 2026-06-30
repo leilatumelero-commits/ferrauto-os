@@ -513,23 +513,39 @@ async function tgaGetToken(){
 
 async function tgaEnviarOS(os, idFirebase){
   try{
-    // 1. Autenticar no TGA
     const token = await tgaGetToken();
     if(!token) throw new Error('Token TGA não obtido');
 
-    // 2. Criar movimento (OS) no TGA
+    const descServicos = (os.servicos||[]).join(', ') || os.descricao || 'Serviços de instalação';
+    const valorTotal = os.valor||0;
+
     const movimento = {
-      tipo: TGA_TIPO_OS,
-      cliente: os.cliente,
-      telefone: os.telefone||'',
-      observacao: 'OS #'+os.numero+' | Placa: '+os.placa+' | Modelo: '+(os.modelo||'')+' | Serviços: '+(os.servicos||[]).join(', ')+' | Atendente: '+(os.atendente||''),
-      valor_total: os.valor||0,
-      data_emissao: new Date().toISOString().split('T')[0],
+      TIPMOV: TGA_TIPO_OS,
+      CODCFO: 0,
+      NOMECLIENTE: os.cliente||'Consumidor',
+      TELEFONE: os.telefone||'',
+      OBSERVACAO: 'OS #'+os.numero+' | Placa: '+os.placa+' | Modelo: '+(os.modelo||'')+' | Atendente: '+(os.atendente||''),
+      VALORTOTAL: valorTotal,
+      DTEMISSAO: new Date().toISOString().split('T')[0],
       itens:[{
-        descricao: (os.servicos||[]).join(', ') || os.descricao || 'Serviços de instalação',
-        quantidade: 1,
-        valor_unitario: os.valor||0,
-        valor_total: os.valor||0
+        NSEQ: 1,
+        CODPRD: '000001',
+        NOMEFANTASIA: descServicos,
+        NUMNOFABRIC: null,
+        CODUND: 'UN',
+        QUANTIDADE: 1,
+        PRECOUNITARIO: valorTotal,
+        VALORTOTALITEM: valorTotal,
+        VALORDESP: 0,
+        VALORDESC: 0,
+        PERCENTUALDESC: 0,
+        IDPROMOCAO: 0,
+        CAMPOLIVRE: null,
+        OBSERVACAO: descServicos,
+        PRECOTABELA: valorTotal,
+        TOTALITEM: valorTotal,
+        PRECOUNITARIOSELEC: 0,
+        PRECOTABELAALTERADO: false
       }]
     };
 
@@ -545,7 +561,7 @@ async function tgaEnviarOS(os, idFirebase){
 
     if(respMov.ok){
       const movData = JSON.parse(respTxt);
-      const idmov = movData.id || movData.idmov || '';
+      const idmov = movData.id || movData.idmov || movData.IDMOV || '';
       if(idmov && idFirebase){
         await fbUpdate(idFirebase, {tgaId: String(idmov)});
       }
