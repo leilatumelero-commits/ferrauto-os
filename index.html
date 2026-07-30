@@ -512,7 +512,7 @@ const TGA_TIPO_OS = '2.4.01';
 async function tgaGetToken(){
   const resp = await fetch(TGA_BASE+'/usuarios-api/login', {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json', 'X-API-Key': TGA_APIKEY},
     body:JSON.stringify({username: TGA_USER, password: TGA_PASS})
   });
   const txt = await resp.text();
@@ -562,10 +562,8 @@ async function tgaEnviarOS(os, idFirebase){
     const respMov = await fetch(TGA_BASE+'/movimentos', {
       method:'POST',
       headers:{
-        'authorization': token,
-        'api-key': TGA_APIKEY,
-        'x-api-key': TGA_APIKEY,
-        'apikey': TGA_APIKEY,
+        'Authorization': 'Bearer ' + token,
+        'X-API-Key': TGA_APIKEY,
         'Content-Type':'application/json'
       },
       body: JSON.stringify(movimento)
