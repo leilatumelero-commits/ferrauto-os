@@ -488,6 +488,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
     <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx3);font-weight:700;margin-bottom:8px">Alterar Status</div>
     <div class="status-btns" id="statusBtns"></div>
     <div class="divider"></div>
+    <button class="btn-ret" style="border-color:var(--grn);color:var(--grn)" onclick="whatsDaOSAtual()">💬 Enviar garantia e avaliação (WhatsApp)</button>
     <button class="btn-ret" onclick="abrirRetorno()">🔄 Abrir OS de Retorno / Garantia</button>
     <button class="btn btn-red" onclick="excluirOS()">🗑 Excluir OS</button>
     <button class="btn btn-sec" onclick="closeModal()">Fechar</button>
@@ -512,6 +513,7 @@ const TGA_FILIAL  = '1';
 const TGA_CODCFO  = 'C00001';
 const TGA_CODPRD  = '005033';
 const TGA_CODCPG  = '00';
+const LINK_AVALIACAO = 'COLE_AQUI_O_LINK_DO_GOOGLE';
 const TGA_VENDEDORES = {
   'Celso':'001', 'Weryk':'040', 'Higor':'041',
   'Cícero':'042', 'Cicero':'042', 'Leila':'001'
@@ -827,12 +829,19 @@ async function analisarIA(dataUrl){
   try{
     const m=dataUrl.match(/^data:(image\/[\w+]+);base64,(.+)$/s);
     if(!m) throw new Error('formato');
+    const payload=JSON.stringify({mediaType:m[1],base64Data:m[2]});
+    console.log('IA URL:', PROXY+'/ia/placa');
+    console.log('IA mediaType:', m[1]);
+    console.log('IA tamanho do envio (KB):', Math.round(payload.length/1024));
     const res=await fetch(PROXY+'/ia/placa',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({mediaType:m[1],base64Data:m[2]})
+      body:payload
     });
+    const respTxt=await res.text();
+    console.log('IA status:', res.status);
+    console.log('IA resposta:', respTxt.slice(0,400));
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
+    const data=JSON.parse(respTxt);
     const raw=(data.content||[]).map(c=>c.text||'').join('').trim();
     const jm=raw.match(/\{[\s\S]*\}/); if(!jm) throw new Error('no json');
     const r=JSON.parse(jm[0]); let ok=false;
@@ -1262,7 +1271,45 @@ async function mudarStatus(novo){
     if(os){ os.status=novo; if(updateData.encerramento) os.encerramento=updateData.encerramento; }
     renderStatusBtns(novo); renderLista(); updateCount();
     showToast('Status atualizado!'); setSyncDot('on');
+    if(novo==='entregue' && os) setTimeout(()=>oferecerWhats(os),400);
   }catch(e){ showToast('Erro: '+e.message,true); }
+}
+
+function whatsDaOSAtual(){
+  const os=ordens.find(o=>o.id===osAtualId);
+  if(os) oferecerWhats(os);
+}
+
+function limparTelefone(tel){
+  let t=(tel||'').replace(/\D/g,'');
+  if(!t) return '';
+  if(t.length<=11) t='55'+t;
+  return t;
+}
+
+function montarMsgWhats(os){
+  const servicos=(os.servicos&&os.servicos.length)?os.servicos.join(', '):(os.descricao||'serviços');
+  let m='Olá, '+(os.cliente||'')+'! Aqui é da *Ferrauto Auto Peças*.\n\n';
+  m+='Seu veículo *'+os.placa+(os.modelo?' — '+os.modelo:'')+'* está pronto e foi entregue.\n';
+  m+='*Serviços realizados:* '+servicos+'\n\n';
+  m+='*TERMO DE GARANTIA*\n';
+  m+='Concedemos garantia de *90 dias* sobre os serviços realizados, a contar da data de entrega. ';
+  m+='A garantia cobre defeitos de mão de obra e/ou peças aplicadas por nós. ';
+  m+='Não cobre: intervenção de terceiros, mau uso, acidentes, desgaste natural ou danos externos. ';
+  m+='Para acionar, traga o veículo até a loja para análise técnica.\n\n';
+  m+='Sua opinião é muito importante para nós! Se puder, deixe sua avaliação:\n';
+  m+=LINK_AVALIACAO+'\n\n';
+  m+='Obrigado pela confiança!\n';
+  m+='_Ferrauto Auto Peças — Rua Arnaldo Estevão de Figueiredo, 1245, Centro, Rondonópolis MT — (66) 3423-1931_';
+  return m;
+}
+
+function oferecerWhats(os){
+  const tel=limparTelefone(os.telefone);
+  if(!tel){ showToast('Cliente sem telefone cadastrado',true); return; }
+  if(!confirm('Enviar termo de garantia e pedido de avaliação para '+(os.cliente||'o cliente')+' no WhatsApp?')) return;
+  const url='https://wa.me/'+tel+'?text='+encodeURIComponent(montarMsgWhats(os));
+  window.open(url,'_blank');
 }
 
 async function excluirOS(){
