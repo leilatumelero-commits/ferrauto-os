@@ -602,7 +602,7 @@ async function tgaEnviarOS(os, idFirebase){
 
     if(respMov.ok){
       const movData = JSON.parse(respTxt);
-      const idmov = movData.id || movData.idmov || movData.IDMOV || '';
+      const idmov = movData.data?.IDMOV || movData.IDMOV || movData.id || movData.idmov || '';
       if(idmov && idFirebase){
         await fbUpdate(idFirebase, {tgaId: String(idmov)});
       }
