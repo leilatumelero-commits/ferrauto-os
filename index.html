@@ -513,7 +513,7 @@ const TGA_FILIAL  = '1';
 const TGA_CODCFO  = 'C00001';
 const TGA_CODPRD  = '005033';
 const TGA_CODCPG  = '00';
-const LINK_AVALIACAO = 'COLE_AQUI_O_LINK_DO_GOOGLE';
+const LINK_AVALIACAO = 'https://www.google.com/maps/place/Ferrauto+Auto+Pe%C3%A7as+e+Acess%C3%B3rios/@-16.4655877,-54.6394236,17z/data=!4m8!3m7!1s0x9379c84132bf70a5:0xb709aa7abf7fa7ba!8m2!3d-16.4655929!4d-54.6368487!9m1!1b1!16s%2Fg%2F11bzwpc0l3';
 const TGA_VENDEDORES = {
   'Celso':'001', 'Weryk':'040', 'Higor':'041',
   'Cícero':'042', 'Cicero':'042', 'Leila':'001'
@@ -527,8 +527,7 @@ async function tgaGetToken(){
     body:JSON.stringify({username: TGA_USER, password: TGA_PASS})
   });
   const txt = await resp.text();
-  console.log('TGA login status:', resp.status, txt);
-  if(!resp.ok) throw new Error('Login TGA falhou: '+txt);
+  if(!resp.ok){ console.error('TGA login falhou:', resp.status, txt.slice(0,200)); throw new Error('Login TGA falhou'); }
   const data = JSON.parse(txt);
   if(!data.token) throw new Error('Token não retornado pelo TGA');
   return data.token;
@@ -599,8 +598,6 @@ async function tgaEnviarOS(os, idFirebase){
     });
 
     const respTxt = await respMov.text();
-    console.log('TGA movimento status:', respMov.status);
-    console.log('TGA movimento body:', respTxt);
 
     if(respMov.ok){
       const movData = JSON.parse(respTxt);
@@ -608,7 +605,6 @@ async function tgaEnviarOS(os, idFirebase){
       if(idmov && idFirebase){
         await fbUpdate(idFirebase, {tgaId: String(idmov)});
       }
-      console.log('TGA: OS enviada, id:', idmov);
       return idmov;
     } else {
       console.error('TGA erro:', respMov.status, respTxt);
@@ -829,18 +825,12 @@ async function analisarIA(dataUrl){
   try{
     const m=dataUrl.match(/^data:(image\/[\w+]+);base64,(.+)$/s);
     if(!m) throw new Error('formato');
-    const payload=JSON.stringify({mediaType:m[1],base64Data:m[2]});
-    console.log('IA URL:', PROXY+'/ia/placa');
-    console.log('IA mediaType:', m[1]);
-    console.log('IA tamanho do envio (KB):', Math.round(payload.length/1024));
     const res=await fetch(PROXY+'/ia/placa',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:payload
+      body:JSON.stringify({mediaType:m[1],base64Data:m[2]})
     });
     const respTxt=await res.text();
-    console.log('IA status:', res.status);
-    console.log('IA resposta:', respTxt.slice(0,400));
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    if(!res.ok){ console.error('IA erro:', res.status, respTxt.slice(0,200)); throw new Error('HTTP '+res.status); }
     const data=JSON.parse(respTxt);
     const raw=(data.content||[]).map(c=>c.text||'').join('').trim();
     const jm=raw.match(/\{[\s\S]*\}/); if(!jm) throw new Error('no json');
