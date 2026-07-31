@@ -920,7 +920,7 @@ function buildServicos(){
               </div>
               <div class="val-wrap">
                 <span class="val-pre">R$</span>
-                <input type="number" class="val-inp" id="val${gi}_${si}" placeholder="${min||'0,00'}" min="${min||0}" step="0.01" value="${min||''}" oninput="checkMin(this,${min||0});calcTotal()">
+                <input type="number" class="val-inp" id="val${gi}_${si}" placeholder="${min||'0,00'}" min="${min||0}" step="0.01" value="${min||''}" oninput="checkMin(this,${min||0});calcTotal()" onblur="forcarMin(this,${min||0});calcTotal()">
               </div>
             </div>
           </div>`;
@@ -983,6 +983,31 @@ function checkMin(input,min){
     input.value=min.toFixed(2);
     showToast('Valor mínimo: R$ '+min.toFixed(2).replace('.',','),true);
   }
+}
+
+function forcarMin(input,min){
+  if(min>0&&(!input.value||parseFloat(input.value)<min)){
+    input.value=min.toFixed(2);
+  }
+}
+
+function validarTodosMinimos(){
+  let corrigiu=false;
+  GRUPOS.forEach((g,gi)=>{
+    g.s.forEach((s,si)=>{
+      const chk=document.getElementById('chk'+gi+'_'+si);
+      if(chk&&chk.classList.contains('sel')){
+        const min=s.min||0;
+        const vi=document.getElementById('val'+gi+'_'+si);
+        if(min>0&&vi&&(!vi.value||parseFloat(vi.value)<min)){
+          vi.value=min.toFixed(2);
+          corrigiu=true;
+        }
+      }
+    });
+  });
+  if(corrigiu){ calcTotal(); showToast('Valores ajustados ao mínimo',true); }
+  return corrigiu;
 }
 
 function getNomeCompleto(gi,si){
@@ -1103,6 +1128,7 @@ async function salvarOS(){
   if(!placa){ showToast('Informe a placa!',true); return; }
   if(!cliente){ showToast('Informe o cliente!',true); return; }
   if(!telefone){ showToast('Informe o telefone!',true); return; }
+  if(validarTodosMinimos()){ return; }
   const btn=document.getElementById('btnSalvar');
   btn.disabled=true; btn.textContent='Salvando...'; setSyncDot('sync');
   try{
