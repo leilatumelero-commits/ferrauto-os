@@ -138,6 +138,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
 
 /* OS LIST */
 .os-list{display:flex;flex-direction:column;gap:10px}
+.data-cab{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 4px;margin-top:6px;border-bottom:1px solid var(--bd)}
+.data-cab-txt{font-family:var(--fh);font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;color:var(--ac)}
+.data-cab-info{font-size:12px;color:var(--tx3)}
 .os-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;cursor:pointer}
 .os-card-h{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--sf2)}
 .os-placa{font-family:var(--fh);font-weight:800;font-size:24px;letter-spacing:3px;color:var(--ac)}
@@ -379,6 +382,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
         <div class="at-btn" onclick="selAt(this,'Weryk')">Weryk</div>
         <div class="at-btn" onclick="selAt(this,'José')">José</div>
       </div>
+      <div id="atLabel" style="font-size:12px;color:var(--ac);margin-top:6px;min-height:16px"></div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:2px">Toque para marcar mais de um. O primeiro é quem recebeu o veículo.</div>
     </div>
   </div>
 
@@ -654,6 +659,17 @@ let nivelUsuario = null;
 
 function isAdmin(){ return nivelUsuario === 'admin'; }
 
+function souDaOS(os){
+  if(!os) return false;
+  if(Array.isArray(os.atendentes) && os.atendentes.length) return os.atendentes.includes(usuarioLogado);
+  return os.atendente === usuarioLogado;
+}
+
+function nomesAtendentes(os){
+  if(Array.isArray(os.atendentes) && os.atendentes.length) return os.atendentes.join(' + ');
+  return os.atendente || '';
+}
+
 function doLogin(){
   const u = document.getElementById('loginUser').value;
   const p = document.getElementById('loginPass').value;
@@ -674,8 +690,10 @@ function doLogin(){
       if(b.textContent.trim() === u || b.textContent.trim().normalize('NFD').replace(/[̀-ͯ]/g,'') === u.normalize('NFD').replace(/[̀-ͯ]/g,'')){
         b.classList.add('sel');
         atSelecionado = b.textContent.trim();
+        if(!atendentes.includes(atSelecionado)) atendentes.push(atSelecionado);
       }
     });
+    atualizarLabelAt();
     startPolling();
   } else {
     err.textContent='Usuário ou senha incorretos';
@@ -768,6 +786,7 @@ let fotoDataUrl = null;
 let fotoTimestamp = null;
 let servicosSelecionados = [];
 let atSelecionado = '';
+let atendentes = [];
 let retornoDeOS = null;
 let pollingInterval = null;
 
@@ -873,9 +892,25 @@ async function analisarIA(dataUrl){
 
 // ===== ATENDENTES =====
 function selAt(el, nome){
-  document.querySelectorAll('.at-btn').forEach(b=>b.classList.remove('sel'));
-  el.classList.add('sel');
-  atSelecionado = nome;
+  const jaSel = el.classList.contains('sel');
+  if(jaSel){
+    el.classList.remove('sel');
+    atendentes = atendentes.filter(a=>a!==nome);
+  } else {
+    el.classList.add('sel');
+    if(!atendentes.includes(nome)) atendentes.push(nome);
+  }
+  atSelecionado = atendentes[0] || '';
+  atualizarLabelAt();
+}
+
+function atualizarLabelAt(){
+  const lb=document.getElementById('atLabel');
+  if(!lb) return;
+  if(!atendentes.length){ lb.textContent=''; return; }
+  lb.textContent = atendentes.length===1
+    ? 'Atendente: '+atendentes[0]
+    : 'Recebeu: '+atendentes[0]+' · Também: '+atendentes.slice(1).join(', ');
 }
 
 // ===== SERVICOS =====
@@ -908,6 +943,15 @@ const GRUPOS = [
     {n:'Cabo de Capô',min:70},{n:'Cabo de Porta Malas'}
   ]}
 ];
+
+// Ordena categorias e serviços em ordem alfabética
+GRUPOS.sort((a,b)=>a.g.localeCompare(b.g,'pt-BR',{sensitivity:'base'}));
+GRUPOS.forEach(g=>{
+  g.s.sort((a,b)=>{
+    const na=(a.n||a), nb=(b.n||b);
+    return na.localeCompare(nb,'pt-BR',{sensitivity:'base'});
+  });
+});
 
 function buildServicos(){
   const wrap=document.getElementById('servicosWrap');
@@ -1169,7 +1213,8 @@ async function salvarOS(){
       descricao:document.getElementById('inputDesc').value.trim(),
       valor:parseFloat(document.getElementById('inputValor').value)||0,
       status:document.getElementById('inputStatus').value,
-      atendente:atSelecionado,
+      atendente:atendentes[0]||atSelecionado,
+      atendentes:atendentes.length?atendentes:(atSelecionado?[atSelecionado]:[]),
       foto:fotoDataUrl||'',
       fotoTimestamp:fotoTimestamp||'',
       entrada:fotoTimestamp||agoraMT(),
@@ -1231,10 +1276,34 @@ function resetForm(){
     });
   });
   fotoDataUrl=null; fotoTimestamp=null; servicosSelecionados=[];
+  atendentes=[]; document.querySelectorAll('.at-btn').forEach(b=>b.classList.remove('sel'));
+  if(usuarioLogado){ document.querySelectorAll('.at-btn').forEach(b=>{ if(b.textContent.trim()===usuarioLogado){ b.classList.add('sel'); atendentes.push(usuarioLogado); } }); }
+  atualizarLabelAt();
   retornoDeOS=null;
 }
 
 // ===== LISTA =====
+function dataDaOS(os){
+  if(os.entradaISO){
+    const d=new Date(os.entradaISO);
+    if(!isNaN(d)) return d.toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'});
+  }
+  if(os.entrada){
+    const m=String(os.entrada).match(/(\d{2}\/\d{2}\/\d{4})/);
+    if(m) return m[1];
+  }
+  return 'Sem data';
+}
+
+function rotuloData(dstr){
+  if(dstr==='Sem data') return dstr;
+  const hoje=new Date().toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'});
+  const ont=new Date(Date.now()-86400000).toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'});
+  if(dstr===hoje) return 'Hoje';
+  if(dstr===ont) return 'Ontem';
+  return dstr;
+}
+
 function statusLabel(s){ return {aberta:'Aberta',andamento:'Andamento',concluida:'Concluída',entregue:'Entregue'}[s]||s; }
 function statusClass(s){ return 's-'+s; }
 
@@ -1243,7 +1312,7 @@ function renderLista(){
   let lista=ordens.filter(os=>{
     const mF=filtroAtual==='todas'||os.status===filtroAtual;
     const mB=!busca||[os.placa,os.cliente,os.modelo,...(os.servicos||[])].join(' ').toLowerCase().includes(busca);
-    const mU=isAdmin()||(os.atendente===usuarioLogado);
+    const mU=isAdmin()||souDaOS(os);
     return mF&&mB&&mU;
   });
   const el=document.getElementById('osList');
@@ -1251,14 +1320,32 @@ function renderLista(){
     el.innerHTML=`<div class="empty"><svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhuma ordem encontrada</p></div>`;
     return;
   }
-  el.innerHTML=lista.map(os=>`
+  // Agrupa por data de abertura
+  const grupos={};
+  lista.forEach(os=>{
+    const d=dataDaOS(os);
+    if(!grupos[d]) grupos[d]=[];
+    grupos[d].push(os);
+  });
+  const datas=Object.keys(grupos).sort((a,b)=>{
+    if(a==='Sem data') return 1;
+    if(b==='Sem data') return -1;
+    const pa=a.split('/'), pb=b.split('/');
+    return new Date(pb[2],pb[1]-1,pb[0]) - new Date(pa[2],pa[1]-1,pa[0]);
+  });
+
+  el.innerHTML=datas.map(d=>{
+    const itens=grupos[d];
+    const total=itens.reduce((a,o)=>a+(o.valor||0),0);
+    const cab=`<div class="data-cab"><span class="data-cab-txt">${rotuloData(d)}</span><span class="data-cab-info">${itens.length} OS · R$ ${total.toFixed(2).replace('.',',')}</span></div>`;
+    return cab + itens.map(os=>`
     <div class="os-card" onclick="abrirOS('${os.id}')">
       <div class="os-card-h">
         <div><div class="os-placa">${os.placa}</div><div class="os-num">OS #${os.numero} · ${os.modelo||'Veículo'}${os.retornoDeOS?' · 🔄':''}</div></div>
         <span class="sbadge ${statusClass(os.status)}">${statusLabel(os.status)}</span>
       </div>
       <div class="os-card-b">
-        <div class="os-row"><span class="os-lbl">Cliente</span><span class="os-val">${os.cliente}${os.atendente?' · '+os.atendente:''}</span></div>
+        <div class="os-row"><span class="os-lbl">Cliente</span><span class="os-val">${os.cliente}${nomesAtendentes(os)?' · '+nomesAtendentes(os):''}</span></div>
         <div class="os-row"><span class="os-lbl">Serviços</span><span class="os-val">${os.servicos&&os.servicos.length?os.servicos.slice(0,3).join(', '):os.descricao||'—'}</span></div>
         <div class="os-row"><span class="os-lbl">Entrada</span><span class="os-val">${os.entrada||'—'}</span></div>
       </div>
@@ -1267,6 +1354,7 @@ function renderLista(){
         <svg width="14" height="14" fill="none" stroke="var(--tx3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </div>`).join('');
+  }).join('');
 }
 
 function setFiltro(f,el){
@@ -1467,7 +1555,7 @@ function abrirOS(id){
   osAtualId=id;
   document.getElementById('mPlaca').textContent=os.placa;
   document.getElementById('mNum').textContent='OS #'+os.numero;
-  document.getElementById('mAtendente').textContent=os.atendente||'—';
+  document.getElementById('mAtendente').textContent=nomesAtendentes(os)||'—';
   document.getElementById('mCliente').textContent=os.cliente+(os.telefone?' · '+os.telefone:'');
   document.getElementById('mVeiculo').textContent=[os.modelo,os.cor].filter(Boolean).join(' · ')||'—';
   document.getElementById('mServicos').textContent=(os.servicos&&os.servicos.length)?os.servicos.join(', '):'—';
@@ -1622,7 +1710,7 @@ function renderHist(placa){
   const el=document.getElementById('histResult');
   if(!placa||placa.length<3){ el.innerHTML=''; return; }
   const p=placa.replace(/[^A-Z0-9]/g,'');
-  const lista=ordens.filter(o=>o.placa&&o.placa.replace(/[^A-Z0-9]/g,'').includes(p)&&(isAdmin()||(o.atendente===usuarioLogado)));
+  const lista=ordens.filter(o=>o.placa&&o.placa.replace(/[^A-Z0-9]/g,'').includes(p)&&(isAdmin()||souDaOS(o)));
   if(!lista.length){ el.innerHTML='<div class="empty"><p>Nenhum veículo encontrado</p></div>'; return; }
   const porPlaca={};
   lista.forEach(os=>{const pp=os.placa.toUpperCase();if(!porPlaca[pp])porPlaca[pp]=[];porPlaca[pp].push(os);});
@@ -1636,7 +1724,7 @@ function renderHist(placa){
         <div class="hist-cont">
           <div class="hist-top"><span class="hist-onum">OS #${os.numero}${os.retornoDeOS?' · RETORNO':''}</span><span class="hist-val">R$ ${(os.valor||0).toFixed(2).replace('.',',')}</span></div>
           <div class="hist-srv">${os.servicos&&os.servicos.length?os.servicos.join(', '):(os.descricao||'—')}</div>
-          <div class="hist-dt">${os.entrada||'—'} · ${os.atendente||'—'}</div>
+          <div class="hist-dt">${os.entrada||'—'} · ${nomesAtendentes(os)||'—'}</div>
         </div>
       </div>`).join('');
     return `<div class="hist-card">
@@ -1660,7 +1748,7 @@ function renderRel(){
   const lista=ordens.filter(os=>{
     if(!os.entradaISO) return false;
     const d=new Date(os.entradaISO).toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'});
-    return d===ddmmyyyy&&(isAdmin()||(os.atendente===usuarioLogado));
+    return d===ddmmyyyy&&(isAdmin()||souDaOS(os));
   }).sort((a,b)=>new Date(a.entradaISO)-new Date(b.entradaISO));
   if(!lista.length){ el.innerHTML='<div class="empty"><p>Nenhuma OS nesta data</p></div>'; return; }
   const total=lista.reduce((a,o)=>a+(o.valor||0),0);
@@ -1669,7 +1757,7 @@ function renderRel(){
     <div class="rel-h"><div><div class="rel-placa">${os.placa}</div><div style="font-size:9px;color:var(--tx3)">OS #${os.numero} · ${os.modelo||''}</div></div><span class="sbadge ${statusClass(os.status)}">${statusLabel(os.status)}</span></div>
     <div class="rel-b">
       <div class="rel-row"><span class="rel-lbl">Cliente</span><span class="rel-val">${os.cliente}</span></div>
-      <div class="rel-row"><span class="rel-lbl">Atendente</span><span class="rel-val">${os.atendente||'—'}</span></div>
+      <div class="rel-row"><span class="rel-lbl">Atendente</span><span class="rel-val">${nomesAtendentes(os)||'—'}</span></div>
       <div class="rel-row"><span class="rel-lbl">Serviços</span><span class="rel-val">${os.servicos&&os.servicos.length?os.servicos.join(', '):(os.descricao||'—')}</span></div>
       <div class="rel-row"><span class="rel-lbl">⏰ Abertura</span><span class="rel-val">${os.entrada||'—'}</span></div>
       <div class="rel-row"><span class="rel-lbl">✅ Encerramento</span><span class="rel-val">${os.encerramento||'<span class=rel-pend>Em aberto</span>'}</span></div>
@@ -1681,7 +1769,7 @@ function renderRel(){
 
 // ===== RESUMO =====
 function renderResumo(){
-  const mO=isAdmin()?ordens:ordens.filter(o=>o.atendente===usuarioLogado);
+  const mO=isAdmin()?ordens:ordens.filter(o=>souDaOS(o));
   const total=mO.length,abertas=mO.filter(o=>o.status==='aberta').length;
   const conc=mO.filter(o=>o.status==='concluida'||o.status==='entregue').length;
   const fat=mO.filter(o=>o.status==='concluida'||o.status==='entregue').reduce((a,o)=>a+(o.valor||0),0);
