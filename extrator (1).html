@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extrator de Compras</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--txt:#1d2330;--mut:#667085;--acc:#c8102e;--ok:#1a7f37;--err:#b42318;--bd:#d0d5dd}
+  @media (prefers-color-scheme: dark){:root{--bg:#14161b;--card:#1d2027;--txt:#e6e8ec;--mut:#98a2b3;--bd:#353a45}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  p.sub{margin:0 0 18px;color:var(--mut)}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+  input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--txt);font-size:15px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:140px}
+  button{margin-top:14px;padding:11px 18px;border:0;border-radius:8px;background:var(--acc);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  #log{font:12px/1.5 ui-monospace,Consolas,monospace;max-height:420px;overflow:auto;white-space:pre-wrap}
+  .ok{color:var(--ok)} .err{color:var(--err)}
+  .note{font-size:13px;color:var(--mut)}
+  progress{width:100%;height:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Extrator de Compras — TGA</h1>
+  <p class="sub">Baixa produtos, estoque por filial, vendas, compras, transferências e devoluções numa planilha para o pedido de compras. Só faz consultas: não grava nada no TGA.</p>
+
+  <div class="card">
+    <label for="u">Usuário da API</label>
+    <input id="u" value="C10515" autocomplete="off">
+    <div class="row">
+      <div><label for="p">Senha da API</label><input id="p" type="password" autocomplete="off"></div>
+      <div><label for="k">X-API-Key</label><input id="k" type="password" autocomplete="off"></div>
+    </div>
+    <div class="row">
+      <div><label for="di">Movimentos de</label><input id="di" type="date"></div>
+      <div><label for="df">até</label><input id="df" type="date"></div>
+    </div>
+    <p class="note">Os dados de acesso não são salvos. Pode levar alguns minutos: deixe a página aberta até aparecer o download.</p>
+    <button id="run">Gerar planilha</button>
+  </div>
+
+  <div class="card" id="pc" hidden>
+    <strong id="fase">Iniciando…</strong>
+    <progress id="bar" max="100" value="0"></progress>
+    <div id="log"></div>
+  </div>
+</main>
+
+<script>
+const BASE = 'https://api.tgasistemas.com.br/v1';
+const TIPOS = [
+  ['2.2.03','VENDA','Extrato de Venda'],
+  ['2.3.02','DEV_VENDA','Devolução EV'],
+  ['1.2.04','COMPRA','Entrada Mercadorias NF-e (NFE)'],
+  ['1.2.01','COMPRA','Compra de Mercadorias NF (NFC)'],
+  ['1.2.02','COMPRA','Extrato de Compra (EC)'],
+  ['1.1.02','PEDIDO_COMPRA','Pedido de Compra'],
+  ['1.3.01','DEV_COMPRA','Devolução de Compras NF-e'],
+  ['1.3.02','DEV_COMPRA','Devolução de Extrato de Compra'],
+  ['1.3.03','DEV_COMPRA','Devolução Emissão Fornecedor'],
+  ['3.1','TRANSFERENCIA','Transferências de Estoque'],
+  ['3.2','TRANSFERENCIA','Pedidos de Transferência'],
+  ['2.2.10','TRANSFERENCIA','Requisição Entre Lojas'],
+  ['2.5.01','TROCA','Troca de Mercadorias'],
+];
+
+let TOKEN = null, KEY = null, USER = null, PASS = null;
+const logEl = () => document.getElementById('log');
+function log(t, cls){ const d=document.createElement('div'); if(cls) d.className=cls; d.textContent=t; logEl().appendChild(d); logEl().scrollTop=1e9; }
+function fase(t, pct){ document.getElementById('fase').textContent=t; if(pct!=null) document.getElementById('bar').value=pct; }
+
+async function login(){
+  const r = await fetch(BASE+'/usuarios-api/login',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':KEY},body:JSON.stringify({username:USER,password:PASS})});
+  const t = await r.text();
+  if(!r.ok) throw new Error('Login falhou: status '+r.status+' '+t.slice(0,120));
+  TOKEN = JSON.parse(t).token;
+  if(!TOKEN) throw new Error('Token não retornado');
+}
+
+async function get(caminho, tent=0){
+  try{
+    const url = BASE+caminho+(caminho.includes('timeout=')?'':(caminho.includes('?')?'&':'?')+'timeout=120');
+    const r = await fetch(url,{headers:{'Authorization':'Bearer '+TOKEN,'X-API-Key':KEY}});
+    if(r.status===401 && tent<2){ await login(); return get(caminho,tent+1); }
+    const t = await r.text();
+    if(!r.ok) throw new Error('status '+r.status+' '+t.slice(0,200));
+    return JSON.parse(t);
+  }catch(e){
+    if(tent<2){ log('  servidor lento, tentando de novo…'); await new Promise(s=>setTimeout(s,4000*(tent+1))); return get(caminho,tent+1); }
+    throw e;
+  }
+}
+function lista(o){ if(Array.isArray(o)) return o; if(o&&Array.isArray(o.data)) return o.data; if(o) for(const v of Object.values(o)) if(Array.isArray(v)) return v; return []; }
+function num(v){ const n=Number(v); return isNaN(n)?0:n; }
+
+/* datas */
+function parseBR(s){ if(!s) return null; const m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/); if(m) return new Date(+m[3],+m[2]-1,+m[1]); const d=new Date(s); return isNaN(d)?null:d; }
+function iso(d){ return d.toISOString().slice(0,10); }
+function br(d){ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+
+/* descobre qual formato de data o filtro aceita */
+let FORMATO_DATA = null;
+async function detectarFiltroData(di, df){
+  const tentativas = [
+    ['ISO-between', `DATAEMISSAO:between(${iso(di)},${iso(df)})`],
+    ['BR-between',  `DATAEMISSAO:between(${br(di)},${br(df)})`],
+    ['ISO-gte',     `DATAEMISSAO:gte(${iso(di)})|DATAEMISSAO:lte(${iso(df)})`],
+  ];
+  for(const [nome, f] of tentativas){
+    try{
+      const res = lista(await get(`/movimentos?q=5&page=1&filter=${encodeURIComponent('CODTMV:eq(2.2.03)|'+f)}`));
+      const fora = res.filter(m=>{ const d=parseBR(m.DATAEMISSAO); return !d || d<di || d>new Date(df.getTime()+864e5); });
+      if(res.length && !fora.length){ FORMATO_DATA = f; log('Filtro de data aceito: '+nome,'ok'); return; }
+      log('Filtro '+nome+': '+(res.length?'datas fora do período':'sem retorno'));
+    }catch(e){ log('Filtro '+nome+' recusado: '+e.message); }
+  }
+  log('Nenhum filtro de data funcionou: vou baixar por tipo e filtrar as datas aqui (mais lento).','err');
+  FORMATO_DATA = '';
+}
+
+async function baixarProdutos(){
+  const linhas=[]; let total=null, Q=200, lidos=0;
+  while(true){
+    let o;
+    try{ o = await get(`/produtos?q=${Q}&page=${lidos/Q+1}`); }
+    catch(e){
+      if(Q>25){ Q=Q/2; log('Produtos: servidor lento, reduzindo para '+Q+' por página'); continue; }
+      throw new Error('Produtos: '+e.message);
+    }
+    if(total===null && o && o.quantTotal) total=num(o.quantTotal);
+    const l = lista(o); lidos+=l.length;
+    for(const p of l){
+      const s = {1:0,2:0};
+      for(const f of (p.TPRODSALDO||[])){ s[f.CODFILIAL]=(s[f.CODFILIAL]||0)+num(f.SALDOFISICO1); }
+      linhas.push({
+        CODPRD:p.CODPRD, COD_FABRICANTE:p.NUMNOFABRIC, COD_FORNECEDOR:p.NUMERONOCFO, DESCRICAO:p.NOMEFANTASIA,
+        CODGRUPO:p.CODGRUPO, CODFAB:p.CODFAB, TIPO:p.TIPO, TIPOITEM:p.TIPOITEM,
+        CUSTO_UNIT:num(p.CUSTOUNITARIO), PRECO1:num(p.PRECO1), ESTOQUE_MINIMO:num(p.ESTOQUEMINIMO),
+        SALDO_FILIAL1:s[1]||0, SALDO_FILIAL2:s[2]||0, SALDO_GERAL:num(p.SALDOGERALFISICO),
+        MULTIPLO_QTD:num(p.MULTIPLOQTD), QTD_EMBALAGEM:num(p.QTDEMBALAGEM), CODBARRAS:p.CODBARRAS
+      });
+    }
+    fase(`Produtos: ${linhas.length}${total?' de '+total:''}`, total? Math.min(30, 30*linhas.length/total):null);
+    if(l.length<Q) break;
+  }
+  log('Produtos baixados: '+linhas.length,'ok');
+  return linhas;
+}
+
+async function baixarMovimentos(di, df){
+  const itens=[], movs=[];
+  const dfFim = new Date(df.getTime()+864e5);
+  for(let i=0;i<TIPOS.length;i++){
+    const [cod, cat, nome] = TIPOS[i];
+    let Q=50, lidos=0, n=0;
+    while(true){
+      const filtro = 'CODTMV:eq('+cod+')' + (FORMATO_DATA ? '|'+FORMATO_DATA : '');
+      let l;
+      try{ l = lista(await get(`/movimentos?q=${Q}&page=${lidos/Q+1}&timeout=120&filter=${encodeURIComponent(filtro)}`)); }
+      catch(e){
+        if(Q>5){ Q=Math.max(5,Math.floor(Q/2)); while(lidos%Q) Q--; log(`${cod}: servidor lento, reduzindo para ${Q} por página`); continue; }
+        log(`${cod} ${nome}: erro após ${lidos} registros — ${e.message}`,'err'); break; }
+      lidos+=l.length;
+      for(const m of l){
+        const d = parseBR(m.DATAEMISSAO);
+        if(!d || d<di || d>=dfFim) continue;
+        n++;
+        movs.push({IDMOV:m.IDMOV, NUMEROMOV:m.NUMEROMOV, CODTMV:m.CODTMV, CATEGORIA:cat, TIPO_NOME:nome, SERIE:m.SERIE,
+          STATUS:m.STATUS, FILIAL:m.CODFILIAL, CODCFO:m.CODCFO, DATA:m.DATAEMISSAO, VALOR_LIQUIDO:num(m.VALORLIQUIDO), VALOR_FRETE:num(m.VALORFRETE), CODCPG:m.CODCPG, COND_PGTO:m.NOMECONDPGTO, IDMOV_ORIGEM:m.IDMOVORIGEM||''});
+        for(const it of (m.itens||[])){
+          itens.push({DATA:m.DATAEMISSAO, CATEGORIA:cat, CODTMV:m.CODTMV, SERIE:m.SERIE, STATUS:m.STATUS, FILIAL:m.CODFILIAL,
+            CODCFO:m.CODCFO, IDMOV:m.IDMOV, NUMEROMOV:m.NUMEROMOV, CODPRD:it.CODPRD, COD_FABRICANTE:it.NUMNOFABRIC,
+            DESCRICAO:it.NOMEFANTASIA, QTD:num(it.QUANTIDADE), PRECO_UNIT:num(it.PRECOUNITARIO), VALOR_ITEM:num(it.VALORTOTALITEM)});
+        }
+      }
+      if(l.length<Q) break;
+      fase(`Movimentos ${cod} ${nome}: ${lidos} lidos…`, 30+60*i/TIPOS.length);
+    }
+    log(`${cod} ${nome}: ${n} movimentos`);
+    fase(`Movimentos: ${i+1} de ${TIPOS.length} tipos`, 30+60*(i+1)/TIPOS.length);
+  }
+  return {movs, itens};
+}
+
+async function baixarAux(){
+  const grupos = lista(await get('/grupos?q=500')).map(g=>({CODGRUPO:g.CODGRUPO, GRUPO:g.DESCRICAO}));
+  let fabs=[], page=1;
+  while(true){ const l=lista(await get(`/fabricantes?q=500&page=${page}`)); fabs=fabs.concat(l.map(f=>({CODFAB:f.CODFAB, FABRICANTE:f.NOME, INATIVO:f.INATIVO}))); if(l.length<500) break; page++; }
+  return {grupos, fabs};
+}
+
+document.getElementById('run').onclick = async ()=>{
+  USER=document.getElementById('u').value.trim(); PASS=document.getElementById('p').value; KEY=document.getElementById('k').value.trim();
+  if(!USER||!PASS||!KEY){ alert('Preencha usuário, senha e X-API-Key.'); return; }
+  const di=new Date(document.getElementById('di').value+'T00:00:00'), df=new Date(document.getElementById('df').value+'T00:00:00');
+  if(isNaN(di)||isNaN(df)||di>df){ alert('Confira as datas.'); return; }
+  const btn=document.getElementById('run'); btn.disabled=true;
+  document.getElementById('pc').hidden=false; logEl().innerHTML='';
+  const t0=Date.now();
+  try{
+    fase('Login…',1); await login(); log('Login ok','ok');
+    document.getElementById('p').value='';
+    fase('Grupos e fabricantes…',2); const {grupos,fabs}=await baixarAux(); log(`Grupos: ${grupos.length} | Fabricantes: ${fabs.length}`,'ok');
+    const prods = await baixarProdutos();
+    const gMap=Object.fromEntries(grupos.map(g=>[g.CODGRUPO,g.GRUPO])), fMap=Object.fromEntries(fabs.map(f=>[f.CODFAB,f.FABRICANTE]));
+    prods.forEach(p=>{ p.GRUPO=gMap[p.CODGRUPO]||''; p.FABRICANTE=fMap[p.CODFAB]||''; });
+    fase('Testando filtro de data…',31); await detectarFiltroData(di,df);
+    const {movs,itens} = await baixarMovimentos(di,df);
+    log(`Total: ${movs.length} movimentos, ${itens.length} linhas de itens`,'ok');
+
+    fase('Montando planilha…',95);
+    const wb=XLSX.utils.book_new();
+    const info=[{CAMPO:'Gerado em',VALOR:new Date().toLocaleString('pt-BR')},{CAMPO:'Período movimentos',VALOR:br(di)+' a '+br(df)},
+      {CAMPO:'Produtos',VALOR:prods.length},{CAMPO:'Movimentos',VALOR:movs.length},{CAMPO:'Itens',VALOR:itens.length},
+      {CAMPO:'Saldo usado',VALOR:'SALDOFISICO1 por filial (conferido no TGA em 20/10/2026)'},{CAMPO:'Tempo (min)',VALOR:((Date.now()-t0)/60000).toFixed(1)}];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(info),'INFO');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(prods),'PRODUTOS');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(itens),'ITENS_MOV');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(movs),'MOVIMENTOS');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(grupos),'GRUPOS');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(fabs),'FABRICANTES');
+    const nome='dados-compras-'+iso(new Date())+'.xlsx';
+    XLSX.writeFile(wb,nome);
+    fase('Pronto: '+nome+' baixado. Envie esse arquivo para o Claude.',100);
+    log('Concluído em '+((Date.now()-t0)/60000).toFixed(1)+' min','ok');
+  }catch(e){
+    fase('Parou com erro',null); log('ERRO em "'+document.getElementById('fase').textContent+'": '+e.message,'err');
+  }finally{
+    TOKEN=null; PASS=null; btn.disabled=false;
+  }
+};
+
+/* período padrão: últimos 12 meses */
+(()=>{ const hoje=new Date(), ini=new Date(hoje); ini.setFullYear(hoje.getFullYear()-1);
+  document.getElementById('df').value=iso(hoje); document.getElementById('di').value=iso(ini); })();
+</script>
+</body>
+</html>
