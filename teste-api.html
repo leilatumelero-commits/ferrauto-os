@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste API TGA</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--txt:#1d2330;--mut:#667085;--acc:#c8102e;--ok:#1a7f37;--err:#b42318;--bd:#d0d5dd}
+  @media (prefers-color-scheme: dark){:root{--bg:#14161b;--card:#1d2027;--txt:#e6e8ec;--mut:#98a2b3;--bd:#353a45}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  p.sub{margin:0 0 18px;color:var(--mut)}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+  input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--txt);font-size:15px}
+  button{margin-top:14px;padding:11px 18px;border:0;border-radius:8px;background:var(--acc);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  button.sec{background:transparent;color:var(--txt);border:1px solid var(--bd)}
+  button:disabled{opacity:.5;cursor:default}
+  .step{padding:6px 0;border-bottom:1px dashed var(--bd);font-size:14px}
+  .ok{color:var(--ok)} .err{color:var(--err)}
+  pre{white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,Consolas,monospace;max-height:480px;overflow:auto;background:var(--bg);padding:10px;border-radius:8px}
+  .note{font-size:13px;color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Teste da API do TGA</h1>
+  <p class="sub">Verifica quais dados de estoque, vendas e compras a API entrega. Só faz consultas: não grava nada no TGA.</p>
+
+  <div class="card">
+    <label for="u">Usuário da API</label>
+    <input id="u" value="C10515" autocomplete="off">
+    <label for="p">Senha da API</label>
+    <input id="p" type="password" autocomplete="off">
+    <label for="k">X-API-Key</label>
+    <input id="k" type="password" autocomplete="off">
+    <p class="note">Os dados de acesso não são salvos e não aparecem no resultado.</p>
+    <button id="run">Rodar teste</button>
+  </div>
+
+  <div class="card" id="progCard" hidden>
+    <div id="prog"></div>
+  </div>
+
+  <div class="card" id="resCard" hidden>
+    <strong>Resultado</strong>
+    <p class="note">Toque em "Copiar resultado" e cole na conversa com o Claude.</p>
+    <button class="sec" id="copy">Copiar resultado</button>
+    <pre id="out"></pre>
+  </div>
+</main>
+
+<script>
+const BASE = 'https://api.tgasistemas.com.br/v1';
+const INTERESSE = /ESTOQ|SALDO|QTD|QUANT|FILIAL|LOCAL|CUSTO|PRECO|NUMNOFABRIC|FABRIC|FORNEC|REFER|GRUPO|DATA|CODTMV|TIPO|ITENS/i;
+let relatorio = [];
+
+function passo(txt, cls){
+  const d = document.createElement('div');
+  d.className = 'step ' + (cls||'');
+  d.textContent = txt;
+  document.getElementById('prog').appendChild(d);
+}
+
+function acharLista(obj){
+  if (Array.isArray(obj)) return obj;
+  if (obj && typeof obj === 'object'){
+    for (const k of ['data','dados','items','registros','result','rows']){
+      if (Array.isArray(obj[k])) return obj[k];
+    }
+    for (const v of Object.values(obj)){
+      if (Array.isArray(v)) return v;
+    }
+  }
+  return null;
+}
+
+function curto(v){
+  if (v === null || v === undefined) return String(v);
+  if (typeof v === 'object') return Array.isArray(v) ? '[lista com ' + v.length + ' itens]' : '{objeto}';
+  const s = String(v);
+  return s.length > 60 ? s.slice(0,60) + '…' : s;
+}
+
+function descreverCampos(reg, prefixo){
+  const linhas = [];
+  for (const [k,v] of Object.entries(reg)){
+    const marca = INTERESSE.test(k) ? ' ◀' : '';
+    linhas.push((prefixo||'') + k + ' = ' + curto(v) + marca);
+    if (Array.isArray(v) && v.length && typeof v[0] === 'object'){
+      linhas.push((prefixo||'') + '  campos de ' + k + '[0]:');
+      descreverCampos(v[0], (prefixo||'') + '    ').forEach(l => linhas.push(l));
+    } else if (v && typeof v === 'object' && !Array.isArray(v)){
+      descreverCampos(v, (prefixo||'') + '  ' + k + '.').forEach(l => linhas.push(l));
+    }
+  }
+  return linhas;
+}
+
+async function consultar(nome, caminho, token, key, modo){
+  passo('Consultando ' + nome + '…');
+  try{
+    const r = await fetch(BASE + caminho, {headers:{'Authorization':'Bearer '+token,'X-API-Key':key}});
+    const txt = await r.text();
+    relatorio.push('\n=== ' + nome + '  (GET ' + caminho + ')  status ' + r.status + ' ===');
+    if (!r.ok){
+      relatorio.push('ERRO: ' + txt.slice(0,300));
+      passo(nome + ': erro ' + r.status, 'err');
+      return;
+    }
+    let data; try{ data = JSON.parse(txt); }catch(e){ relatorio.push('Resposta não é JSON: ' + txt.slice(0,300)); return; }
+    const lista = acharLista(data);
+    if (!lista){
+      relatorio.push('Formato: ' + JSON.stringify(data).slice(0,800));
+    } else {
+      const extras = Object.keys(data).filter(k => !Array.isArray(data[k])).map(k => k + '=' + curto(data[k]));
+      relatorio.push('Registros nesta página: ' + lista.length + (extras.length ? '  |  ' + extras.join(', ') : ''));
+      if (modo === 'tabela'){
+        lista.forEach(it => relatorio.push('  ' + Object.entries(it).slice(0,6).map(([k,v]) => k + ':' + curto(v)).join(' | ')));
+      } else if (lista.length){
+        relatorio.push('Campos do 1º registro (◀ = campo de interesse para compras):');
+        descreverCampos(lista[0], '  ').forEach(l => relatorio.push(l));
+      }
+    }
+    passo(nome + ': ok', 'ok');
+  }catch(e){
+    relatorio.push('\n=== ' + nome + ' ===\nFALHA DE CONEXÃO: ' + e.message);
+    passo(nome + ': falha de conexão (' + e.message + ')', 'err');
+  }
+}
+
+document.getElementById('run').onclick = async () => {
+  const u = document.getElementById('u').value.trim();
+  const p = document.getElementById('p').value;
+  const k = document.getElementById('k').value.trim();
+  if (!u || !p || !k){ alert('Preencha usuário, senha e X-API-Key.'); return; }
+  const btn = document.getElementById('run');
+  btn.disabled = true;
+  relatorio = ['TESTE API TGA — ' + new Date().toLocaleString('pt-BR')];
+  document.getElementById('prog').innerHTML = '';
+  document.getElementById('progCard').hidden = false;
+  document.getElementById('resCard').hidden = true;
+
+  let token;
+  passo('Fazendo login…');
+  try{
+    const r = await fetch(BASE + '/usuarios-api/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-API-Key':k},
+      body: JSON.stringify({username:u, password:p})
+    });
+    const txt = await r.text();
+    if (!r.ok) throw new Error('status ' + r.status + ' ' + txt.slice(0,150));
+    token = JSON.parse(txt).token;
+    if (!token) throw new Error('token não retornado');
+    passo('Login: ok', 'ok');
+    relatorio.push('Login: ok');
+  }catch(e){
+    passo('Login falhou: ' + e.message, 'err');
+    relatorio.push('Login falhou: ' + e.message);
+    mostrar(); btn.disabled = false; return;
+  }
+  document.getElementById('p').value = '';
+
+  await consultar('Tipos de movimento', '/tipos-movimento?q=200', token, k, 'tabela');
+  await consultar('Filiais', '/config/filiais?q=10&filter=', token, k, 'tabela');
+  await consultar('Grupos de produto', '/grupos?q=200', token, k, 'tabela');
+  await consultar('Fabricantes (amostra)', '/fabricantes?q=5', token, k, 'tabela');
+  await consultar('Produtos (amostra)', '/produtos?q=2', token, k, 'campos');
+  await consultar('Movimentos (amostra)', '/movimentos?q=2&filter=', token, k, 'campos');
+  await consultar('Alterações de produto', '/alteracoes?tabela=PRODUTO&q=3', token, k, 'campos');
+
+  token = null;
+  passo('Teste concluído.', 'ok');
+  mostrar();
+  btn.disabled = false;
+};
+
+function mostrar(){
+  document.getElementById('out').textContent = relatorio.join('\n');
+  document.getElementById('resCard').hidden = false;
+}
+
+document.getElementById('copy').onclick = async () => {
+  const t = document.getElementById('out').textContent;
+  try{ await navigator.clipboard.writeText(t); alert('Copiado. Cole na conversa com o Claude.'); }
+  catch(e){
+    const r = document.createRange(); r.selectNodeContents(document.getElementById('out'));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    alert('Selecionei o texto. Use Copiar (Ctrl+C) e cole na conversa.');
+  }
+};
+</script>
+</body>
+</html>
