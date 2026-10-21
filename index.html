@@ -578,9 +578,16 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
   <div id="cpViewGer" style="display:none">
     <div class="cp-head"><div class="cp-title">Gerar pedido</div></div>
     <div class="card">
-      <div class="cp-hint" style="margin:0 0 10px">Método 45 dias. No TGA, exporte em Excel o <b>Extrato de Movimentação</b> (filiais 1 até 2, de preferência 12 meses ou mais) e, se quiser os códigos do fabricante, o <b>Relatório de Estoque</b> com Refer. Fabricante. Pode ser um grupo, um fabricante ou tudo.</div>
-      <div class="field"><label>Extrato de movimentação (obrigatório)</label><input type="file" id="cpArqExt" class="cp-file" accept=".xlsx,.xls,.csv"></div>
-      <div class="field"><label>Relatório de estoque (opcional)</label><input type="file" id="cpArqEst" class="cp-file" accept=".xlsx,.xls,.csv"></div>
+      <div class="card-title">Direto do TGA</div>
+      <div class="cp-hint" style="margin:0 0 10px">O app busca no TGA o estoque das filiais 1 e 2, as vendas, as notas de entrada e as devoluções, e calcula pelo Método 45 dias. A primeira busca demora alguns minutos; depois os filtros recalculam na hora.</div>
+      <div class="field2">
+        <div class="field"><label>Histórico (meses)</label><input type="number" id="cpTgaMeses" value="12" inputmode="numeric"></div>
+        <div class="field"><label>Grupos (códigos)</label><input type="text" id="cpTgaGrupos" placeholder="Ex.: 011, 026 · vazio = todos"></div>
+      </div>
+      <div class="field2">
+        <div class="field"><label>Fabricante</label><input type="text" id="cpTgaFab" placeholder="Código ou nome"></div>
+        <div class="field"><label>Fornecedor</label><input type="text" id="cpTgaForn" placeholder="Ex.: F01035 ou Autovex"></div>
+      </div>
       <div class="field2">
         <div class="field"><label>Cobertura (dias)</label><input type="number" id="cpParCob" value="45" inputmode="numeric"></div>
         <div class="field"><label>Prazo padrão (dias)</label><input type="number" id="cpParPrazo" value="10" inputmode="numeric"></div>
@@ -590,8 +597,18 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
         <div class="field"><label>Item barato até (R$)</label><input type="number" id="cpParBarato" value="30" inputmode="numeric"></div>
       </div>
       <div class="cp-hint" style="margin:-4px 0 10px">O prazo de cada fornecedor vem do cadastro ou das chegadas registradas. Itens em pedidos liberados ou em trânsito são descontados. Pedidos só simulados não contam.</div>
-      <button class="btn btn-prim" id="cpBtnCalc" onclick="cpCalcular()">Calcular pedido</button>
+      <button class="btn btn-prim" id="cpBtnTga" onclick="cpCalcularTGA(false)">Buscar no TGA e calcular</button>
+      <button class="btn btn-sec" onclick="cpCalcularTGA(true)">Atualizar dados do TGA</button>
+      <div class="cp-hint" id="cpTgaFase" style="margin-top:8px"></div>
     </div>
+    <details class="cp-alerta" style="margin-bottom:12px"><summary><span class="cp-al-t">Por arquivo exportado</span><span class="cp-al-n">alternativa</span></summary>
+      <div style="padding:12px">
+      <div class="cp-hint" style="margin:0 0 10px">Se o TGA estiver fora do ar: exporte em Excel o <b>Extrato de Movimentação</b> (filiais 1 até 2) e, se quiser os códigos do fabricante, o <b>Relatório de Estoque</b>. Usa os mesmos parâmetros acima.</div>
+      <div class="field"><label>Extrato de movimentação</label><input type="file" id="cpArqExt" class="cp-file" accept=".xlsx,.xls,.csv"></div>
+      <div class="field"><label>Relatório de estoque (opcional)</label><input type="file" id="cpArqEst" class="cp-file" accept=".xlsx,.xls,.csv"></div>
+      <button class="btn btn-prim" id="cpBtnCalc" onclick="cpCalcular()">Calcular pedido</button>
+      </div>
+    </details>
     <div id="cpGerRes"></div>
   </div>
 
@@ -3169,7 +3186,7 @@ async function cpCalcular(){
       prazoForn: cpPrazoFornMapa(), transito: cpTransitoMapa()
     };
     cpRes = MT.calcular(ext, est, opts);
-    cpRes.arquivo = fE.name; cpRes.comEstoque = !!est;
+    cpRes.arquivo = fE.name; cpRes.comEstoque = !!est; cpRes.origem = 'Arquivo '+fE.name;
     cpRes.itens.forEach(i=>{ i.qPedir=i.pedir; i.fornEsc=i.fornCod||i.fornNome||'SEM FORNECEDOR'; i.fornEscNome=i.fornNome||'Sem fornecedor'; i.custoEsc=i.custo; });
     cpResForn='todos'; cpResBusca='';
     cpRenderResultado(); cpRenderAlertas(); cpRenderAnalises();
@@ -3199,7 +3216,7 @@ function cpRenderResultado(){
   const grupos=cpGruposForn();
   const tot={cod:0,un:0,val:0}; grupos.forEach(g=>{ tot.cod+=g.itens.length; tot.un+=g.un; tot.val+=g.val; });
   let h=`<div class="msec" style="border:1px solid var(--ac)"><div style="font-size:14px;color:var(--ac);font-weight:600">Pedido calculado com o estoque geral das filiais 1 e 2.</div>
-    <div class="cp-hint">Período do extrato: ${cpBR(cpRes.ini)} a ${cpBR(cpRes.fim)} (${cpRes.diasPer} dias) · ${cpRes.itens.length} produtos analisados · cobertura ${cpRes.opts.cob} dias${cpRes.comEstoque?'':' · sem relatório de estoque (códigos de fabricante podem faltar)'}</div></div>
+    <div class="cp-hint">${cpRes.origem?cpEsc(cpRes.origem)+' · ':''}Período: ${cpBR(cpRes.ini)} a ${cpBR(cpRes.fim)} (${cpRes.diasPer} dias) · ${cpRes.itens.length} produtos analisados · cobertura ${cpRes.opts.cob} dias${cpRes.comEstoque?'':' · sem relatório de estoque (códigos de fabricante podem faltar)'}</div></div>
     <div class="stats"><div class="stat"><div class="stat-v">${tot.cod}</div><div class="stat-l">Códigos</div></div><div class="stat"><div class="stat-v">${cpN(tot.un,0)}</div><div class="stat-l">Unidades</div></div>
     <div class="stat"><div class="stat-v" style="font-size:22px">${cpMoeda(tot.val)}</div><div class="stat-l">Valor estimado</div></div><div class="stat"><div class="stat-v">${grupos.length}</div><div class="stat-l">Fornecedores</div></div></div>`;
   h+=`<div class="card-title">Por fornecedor</div>`;
@@ -3262,7 +3279,7 @@ async function cpCriarDoCalculo(k){
   try{
     let f=cpFornDoCad(g.cod,g.nome);
     if(!f){ f=await cpFbAdd(CP_COL_FORN,{nome:g.nome, codTGA:g.cod, prazo:cpRes.opts.prazoPadrao, pedMin:'', frete:'', freteObs:'', contato:'', whats:'', obs:'Cadastrado pelo cálculo do pedido', atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()}); cpForns.push(f); }
-    const itens=g.itens.map(i=>({codFab:i.ref||i.cod, codForn:'', codInt:i.codInt, desc:i.desc, qtd:i.qPedir, custo:Math.round(i.custoEsc*100)/100, obs:i.motivo}))
+    const itens=g.itens.map(i=>({codFab:i.ref||i.cod, codForn:i.refForn||'', codInt:i.codInt, desc:i.desc, qtd:i.qPedir, custo:Math.round(i.custoEsc*100)/100, obs:i.motivo}))
       .sort((a,b)=>String(a.codFab).localeCompare(String(b.codFab),'pt-BR',{numeric:true}));
     const t=cpTotais(itens);
     const prazo = cpPrazoFornMapa()[String(f.codTGA||'').toUpperCase()] || Number(f.prazo) || cpRes.opts.prazoPadrao;
@@ -3336,6 +3353,192 @@ function cpRenderAnalises(){
   h+=`<div class="card-title" style="margin-top:14px">Prazo real dos fornecedores</div>`+
     (prs.length? `<div class="msec">`+prs.map(x=>`<div class="cp-kv"><span>${cpEsc(x.f.nome)}</span><span>${Math.round(x.pr.med)} dias · ${x.pr.n} chegada(s)${x.f.prazo?' · informado '+x.f.prazo:''}</span></div>`).join('')+`</div>` : '<div class="cp-hint">Aparece quando houver chegadas registradas nos pedidos.</div>');
   el.innerHTML=h;
+}
+
+// ===================================================================
+// ===== COMPRAS: DADOS DIRETO DO TGA (API) =====
+// Baixa produtos (saldo filiais 1 e 2), vendas, compras e devoluções
+// e transforma no mesmo formato que o motor usa com o extrato.
+// ===================================================================
+const CP_TGA_TIPOS = [
+  ['2.2.03','VENDA'], ['2.3.02','DEV_VENDA'],
+  ['1.2.04','COMPRA'], ['1.2.01','COMPRA'], ['1.2.02','COMPRA'],
+  ['1.3.01','DEV_COMPRA'], ['1.3.02','DEV_COMPRA'], ['1.3.03','DEV_COMPRA']
+];
+let cpTga = null;            // {quando, ini, fim, prods, itens, grupos, fabs, nomes}
+let cpTgaToken = null;
+let cpTgaFiltroData = null;
+
+function cpTgaFase(t){ const e=document.getElementById('cpTgaFase'); if(e) e.textContent=t; }
+async function cpTgaGet(caminho, tent){
+  tent=tent||0;
+  if(!cpTgaToken) cpTgaToken = await tgaGetToken();
+  try{
+    const url = TGA_BASE+caminho+(caminho.includes('?')?'&':'?')+'timeout=120';
+    const r = await fetch(url,{headers:{'Authorization':'Bearer '+cpTgaToken,'X-API-Key':TGA_APIKEY}});
+    if(r.status===401 && tent<2){ cpTgaToken=null; return cpTgaGet(caminho,tent+1); }
+    const t = await r.text();
+    if(!r.ok) throw new Error('status '+r.status+' '+t.slice(0,150));
+    return JSON.parse(t);
+  }catch(e){
+    if(tent<2){ await new Promise(s=>setTimeout(s,4000*(tent+1))); return cpTgaGet(caminho,tent+1); }
+    throw e;
+  }
+}
+function cpTgaLista(o){ if(Array.isArray(o)) return o; if(o&&Array.isArray(o.data)) return o.data; if(o) for(const v of Object.values(o)) if(Array.isArray(v)) return v; return []; }
+function cpTgaN(v){ const n=Number(v); return isNaN(n)?0:n; }
+function cpTgaData(s){ if(!s) return null; const m=String(s).match(/(\d{2})\/(\d{2})\/(\d{4})/); if(m) return m[3]+'-'+m[2]+'-'+m[1]; const m2=String(s).match(/^(\d{4}-\d{2}-\d{2})/); return m2?m2[1]:null; }
+function cpBRd(iso){ const p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+async function cpTgaDetectarFiltro(ini,fim){
+  const tent=[`DATAEMISSAO:between(${ini},${fim})`, `DATAEMISSAO:between(${cpBRd(ini)},${cpBRd(fim)})`, `DATAEMISSAO:gte(${ini})|DATAEMISSAO:lte(${fim})`];
+  for(const f of tent){
+    try{
+      const l=cpTgaLista(await cpTgaGet('/movimentos?q=5&page=1&filter='+encodeURIComponent('CODTMV:eq(2.2.03)|'+f)));
+      const fora=l.filter(m=>{ const d=cpTgaData(m.DATAEMISSAO); return !d||d<ini||d>fim; });
+      if(l.length && !fora.length) return f;
+    }catch(e){}
+  }
+  return '';
+}
+
+async function cpTgaBaixar(meses){
+  const fim=cpHojeISO(); const d=new Date(fim+'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth()-meses); const ini=d.toISOString().slice(0,10);
+  cpTgaToken=null;
+  cpTgaFase('Entrando no TGA...');
+  await cpTgaGet('/grupos?q=1');
+  cpTgaFase('Grupos e fabricantes...');
+  const grupos={}; cpTgaLista(await cpTgaGet('/grupos?q=500')).forEach(g=>grupos[g.CODGRUPO]=g.DESCRICAO);
+  const fabs={}; for(let pg=1;pg<50;pg++){ const l=cpTgaLista(await cpTgaGet('/fabricantes?q=500&page='+pg)); l.forEach(f=>fabs[f.CODFAB]=f.NOME); if(l.length<500) break; }
+  // produtos
+  const prods=[]; let Q=200, lidos=0, total=null;
+  while(true){
+    let o;
+    try{ o=await cpTgaGet(`/produtos?q=${Q}&page=${lidos/Q+1}`); }
+    catch(e){ if(Q>25){ Q=Q/2; continue; } throw new Error('Produtos: '+e.message); }
+    if(total===null && o && o.quantTotal) total=cpTgaN(o.quantTotal);
+    const l=cpTgaLista(o); lidos+=l.length;
+    l.forEach(p=>{
+      let s1=0,s2=0; (p.TPRODSALDO||[]).forEach(f=>{ if(String(f.CODFILIAL)==='1') s1+=cpTgaN(f.SALDOFISICO1); else if(String(f.CODFILIAL)==='2') s2+=cpTgaN(f.SALDOFISICO1); });
+      prods.push({cod:String(p.CODPRD), ref:p.NUMNOFABRIC||'', refForn:p.NUMERONOCFO||'', desc:p.NOMEFANTASIA||'', grupo:p.CODGRUPO||'', fab:p.CODFAB||'', custo:cpTgaN(p.CUSTOUNITARIO), preco:cpTgaN(p.PRECO1), s1, s2, inativo:p.INATIVO});
+    });
+    cpTgaFase(`Produtos: ${prods.length}${total?' de '+total:''}`);
+    if(l.length<Q) break;
+  }
+  cpTgaFase('Testando filtro de data...');
+  if(cpTgaFiltroData===null) cpTgaFiltroData = await cpTgaDetectarFiltro(ini,fim);
+  // movimentos
+  const itens=[]; const cfos=new Set();
+  for(let i=0;i<CP_TGA_TIPOS.length;i++){
+    const [cod,cat]=CP_TGA_TIPOS[i];
+    let Qm=50, lid=0;
+    while(true){
+      const filtro='CODTMV:eq('+cod+')'+(cpTgaFiltroData?'|'+cpTgaFiltroData:'');
+      let l;
+      try{ l=cpTgaLista(await cpTgaGet(`/movimentos?q=${Qm}&page=${lid/Qm+1}&filter=${encodeURIComponent(filtro)}`)); }
+      catch(e){ if(Qm>5){ Qm=Math.max(5,Math.floor(Qm/2)); while(lid%Qm) Qm--; continue; } throw new Error('Movimentos '+cod+': '+e.message); }
+      lid+=l.length;
+      l.forEach(m=>{
+        const dt=cpTgaData(m.DATAEMISSAO); if(!dt||dt<ini||dt>fim) return;
+        if(String(m.STATUS||'').toUpperCase()==='C') return; // cancelado
+        if(m.CODCFO) cfos.add(m.CODCFO);
+        (m.itens||[]).forEach(it=>itens.push({data:dt, cat, tmv:m.CODTMV, num:String(m.NUMEROMOV||m.IDMOV), serie:m.SERIE||'', filial:String(m.CODFILIAL||''), cfo:m.CODCFO||'', prd:String(it.CODPRD), q:cpTgaN(it.QUANTIDADE), preco:cpTgaN(it.PRECOUNITARIO)}));
+      });
+      cpTgaFase(`Movimentos ${i+1}/${CP_TGA_TIPOS.length} (${cat.toLowerCase().replace('_',' ')}): ${lid} lidos`);
+      if(l.length<Qm) break;
+    }
+  }
+  // nomes dos fornecedores (só os que aparecem em compras)
+  const nomes={};
+  const fornCods=[...new Set(itens.filter(x=>x.cat==='COMPRA').map(x=>x.cfo))];
+  cpForns.forEach(f=>{ if(f.codTGA) nomes[String(f.codTGA).toUpperCase()]=f.nome; });
+  let k=0;
+  for(const c of fornCods){
+    k++; if(nomes[String(c).toUpperCase()]) continue;
+    cpTgaFase(`Nomes dos fornecedores: ${k}/${fornCods.length}`);
+    try{
+      const l=cpTgaLista(await cpTgaGet('/clientes?q=1&filter='+encodeURIComponent('CODCFO:eq('+c+')')));
+      const x=l[0]; if(x) nomes[String(c).toUpperCase()] = x.NOMEFANTASIA||x.NOME||x.RAZAOSOCIAL||c;
+    }catch(e){}
+  }
+  cpTga={quando:new Date().toISOString(), ini, fim, prods, itens, grupos, fabs, nomes};
+  cpTgaToken=null;
+  return cpTga;
+}
+
+// Converte os dados da API para o formato do motor (mesmo do extrato)
+function cpTgaParaMotor(d, filtro){
+  const fGr = (filtro.grupos||[]).map(x=>String(x).trim().padStart(3,'0')).filter(Boolean);
+  const fFab = String(filtro.fab||'').trim().toUpperCase();
+  const fForn = String(filtro.forn||'').trim().toUpperCase();
+  // deduplicação de compras: mesma nota em NF-e, NFC e EC conta uma vez
+  const compras=d.itens.filter(x=>x.cat==='COMPRA').sort((a,b)=>a.data<b.data?-1:1);
+  const vistas=[]; const comprasOk=[];
+  compras.forEach(c=>{
+    const dup=vistas.find(v=>v.cfo===c.cfo && v.prd===c.prd && v.q===c.q && v.tmv!==c.tmv && Math.abs(MT.dias(v.data,c.data))<=5);
+    if(dup) return;
+    vistas.push(c); comprasOk.push(c);
+  });
+  const porPrd={};
+  const add=(prd,o)=>{ (porPrd[prd]=porPrd[prd]||[]).push(o); };
+  d.itens.forEach(x=>{
+    if(x.cat==='VENDA') add(x.prd,{data:x.data, doc:x.num, ser:'EV', preco:x.preco, q:-x.q, origem:x.cfo});
+    else if(x.cat==='DEV_VENDA') add(x.prd,{data:x.data, doc:x.num, ser:'DV', preco:x.preco, q:x.q, origem:x.cfo});
+    else if(x.cat==='DEV_COMPRA') add(x.prd,{data:x.data, doc:x.num, ser:'DC', preco:x.preco, q:-x.q, origem:x.cfo});
+  });
+  comprasOk.forEach(x=>{ const cf=String(x.cfo).toUpperCase(); add(x.prd,{data:x.data, doc:x.num, ser:'EC', preco:x.preco, q:x.q, origem:cf+'-'+(d.nomes[cf]||cf)}); });
+  const prods=[], estoque={};
+  // fornecedor = último fornecedor de compra
+  d.prods.forEach(p=>{
+    if(fGr.length && !fGr.includes(String(p.grupo).padStart(3,'0'))) return;
+    if(fFab && !(String(p.fab).toUpperCase()===fFab || String(d.fabs[p.fab]||'').toUpperCase().includes(fFab))) return;
+    const movs=(porPrd[p.cod]||[]).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);
+    if(fForn){
+      const ult=[...movs].reverse().find(m=>m.ser==='EC');
+      if(!ult || !(ult.origem.toUpperCase().startsWith(fForn+'-') || ult.origem.toUpperCase().includes(fForn))) return;
+    }
+    const atual=Math.max(0,p.s1+p.s2);
+    if(!movs.length && atual<=0) return;
+    // saldo reconstruído de trás para frente a partir do saldo atual
+    let s=atual; for(let i=movs.length-1;i>=0;i--){ movs[i].saldo=s; s-=movs[i].q; }
+    const saldoAnt=Math.max(0,s);
+    const cod=MT.normCod(p.cod);
+    prods.push({codInt:p.cod, cod, desc:p.desc, un:'', saldoAnt, estoqueGeral:atual,
+      movs:movs.map(m=>({data:m.data, doc:m.doc, ser:m.ser, preco:m.preco, custo:p.custo, saldo:m.saldo, qtd:m.q, origem:m.origem}))});
+    estoque[cod]={desc:p.desc, forn:'', ref:p.ref||'', refForn:p.refForn||'', custo:p.custo, qtd:atual, grupo:d.grupos[p.grupo]||p.grupo};
+  });
+  return {ext:{ini:d.ini, fim:d.fim, prods}, estoque};
+}
+
+async function cpCalcularTGA(forcar){
+  const btn=document.getElementById('cpBtnTga'); btn.disabled=true;
+  try{
+    if(!cpCarregado) await cpCarregar(true);
+    const meses=Number(document.getElementById('cpTgaMeses').value)||12;
+    if(forcar || !cpTga || cpTga.meses!==meses){
+      btn.textContent='Buscando no TGA...';
+      await cpTgaBaixar(meses); cpTga.meses=meses;
+    }
+    cpTgaFase('Calculando...');
+    const filtro={grupos:document.getElementById('cpTgaGrupos').value.split(/[,;\s]+/).filter(Boolean), fab:document.getElementById('cpTgaFab').value, forn:document.getElementById('cpTgaForn').value};
+    const {ext, estoque}=cpTgaParaMotor(cpTga, filtro);
+    if(!ext.prods.length) throw new Error('Nenhum produto com esse filtro.');
+    const opts = {
+      cob: Number(document.getElementById('cpParCob').value)||45,
+      prazoPadrao: Number(document.getElementById('cpParPrazo').value)||10,
+      caro: Number(document.getElementById('cpParCaro').value)||300,
+      barato: Number(document.getElementById('cpParBarato').value)||30,
+      prazoForn: cpPrazoFornMapa(), transito: cpTransitoMapa()
+    };
+    cpRes = MT.calcular(ext, estoque, opts);
+    cpRes.arquivo='TGA'; cpRes.comEstoque=true; cpRes.origem='Dados buscados no TGA em '+new Date(cpTga.quando).toLocaleString('pt-BR',{timeZone:'America/Cuiaba'});
+    cpRes.itens.forEach(i=>{ const e=estoque[i.cod]; i.refForn=e?e.refForn:''; i.qPedir=i.pedir; i.fornEsc=i.fornCod||i.fornNome||'SEM FORNECEDOR'; i.fornEscNome=i.fornNome||'Sem fornecedor'; i.custoEsc=i.custo; });
+    cpResForn='todos'; cpResBusca='';
+    cpRenderResultado(); cpRenderAlertas(); cpRenderAnalises();
+    cpTgaFase(cpRes.origem+' · '+cpTga.prods.length+' produtos · '+cpTga.itens.length+' linhas de movimento');
+    showToast(cpRes.itens.filter(i=>i.qPedir>0).length+' itens para pedir · '+cpRes.alertas.length+' alertas');
+  }catch(e){ console.error(e); cpTgaFase('Parou: '+e.message); showToast('Erro no TGA: '+e.message, true); }
+  btn.disabled=false; btn.textContent='Buscar no TGA e calcular';
 }
 
 // ===== INIT =====
