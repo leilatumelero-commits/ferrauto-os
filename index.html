@@ -272,6 +272,39 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== COMPRAS ===== */
+.cp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.cp-title{font-family:var(--fh);font-weight:800;font-size:22px;letter-spacing:2px;text-transform:uppercase;color:var(--ac)}
+.cp-mini{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:var(--r);font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.cp-mini.prim{background:var(--ac);color:#000;border-color:var(--ac)}
+.cp-mini.red{background:transparent;color:var(--red);border-color:var(--red)}
+.cp-st{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.cp-st-rascunho{background:rgba(136,136,136,0.15);color:#aaa;border:1px solid rgba(136,136,136,0.3)}
+.cp-st-enviado{background:rgba(245,168,0,0.15);color:var(--ac);border:1px solid rgba(245,168,0,0.3)}
+.cp-st-transito{background:rgba(52,152,219,0.15);color:var(--blu);border:1px solid rgba(52,152,219,0.3)}
+.cp-st-recebido{background:rgba(46,204,113,0.15);color:var(--grn);border:1px solid rgba(46,204,113,0.3)}
+.cp-st-cancelado{background:rgba(224,60,60,0.15);color:var(--red);border:1px solid rgba(224,60,60,0.3)}
+.cp-forn{font-family:var(--fh);font-weight:800;font-size:20px;letter-spacing:1px;color:var(--ac)}
+.cp-item{background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px;margin-bottom:6px}
+.cp-item-g{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cp-item-g3{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-top:6px}
+.cp-item input{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-family:var(--fb);font-size:15px;padding:7px 8px;outline:none}
+.cp-item input:focus{border-color:var(--ac)}
+.cp-item label{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);margin-bottom:2px;font-weight:600}
+.cp-del{background:transparent;border:1px solid var(--red);color:var(--red);border-radius:4px;font-size:15px;width:34px;height:34px;cursor:pointer}
+.cp-tot{display:flex;justify-content:space-between;align-items:center;background:var(--sf2);border-radius:var(--r);padding:10px 12px;margin:8px 0;font-size:14px;color:var(--tx2)}
+.cp-tot b{font-family:var(--fh);font-size:20px;color:var(--ac)}
+.cp-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.cp-tbl th{text-align:left;color:var(--tx3);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:5px 4px;border-bottom:1px solid var(--bd)}
+.cp-tbl td{padding:6px 4px;border-bottom:1px solid rgba(42,42,42,0.6);color:var(--tx2);vertical-align:top}
+.cp-tbl td.n{text-align:right;white-space:nowrap;color:var(--tx)}
+.cp-hint{font-size:12px;color:var(--tx3);line-height:1.5;margin-top:4px}
+.cp-acts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.cp-acts .cp-mini{padding:11px 8px}
+.cp-kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0;border-bottom:1px solid rgba(42,42,42,0.5)}
+.cp-kv span:first-child{color:var(--tx3)}
+.cp-kv span:last-child{color:var(--tx);text-align:right}
 </style>
 </head>
 <body>
@@ -295,6 +328,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
         <option value="">Selecione seu nome</option>
         <option>Leila</option><option>Celso</option>
         <option>Higor</option><option>Weryk</option><option>José</option>
+        <option>Antenor</option><option>Eduardo</option>
       </select>
     </div>
     <div class="lf">
@@ -335,6 +369,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
   <div class="tab" onclick="goTab('relatorio',this)">Diário</div>
   <div class="tab" onclick="goTab('analise',this)">Análise</div>
   <div class="tab" onclick="goTab('resumo',this)">Resumo</div>
+  <div class="tab" id="tabCompras" style="display:none" onclick="goTab('compras',this)">Compras</div>
 </div>
 
 <!-- AVISO DE PENDENTES -->
@@ -496,6 +531,154 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
 <div class="page" id="page-resumo">
   <div class="stats" id="statsGrid"></div>
   <div id="resumoSrv"></div>
+</div>
+
+
+<!-- COMPRAS -->
+<div class="page" id="page-compras">
+  <div class="filtros" style="margin-bottom:12px">
+    <div class="fbtn active" id="cpSubPed" onclick="cpSub('pedidos')">Pedidos</div>
+    <div class="fbtn" id="cpSubForn" onclick="cpSub('fornecedores')">Fornecedores</div>
+  </div>
+
+  <div id="cpViewPedidos">
+    <div class="cp-head">
+      <div class="cp-title">Pedidos</div>
+      <button class="cp-mini prim" onclick="cpNovoPedido()">+ Novo pedido</button>
+    </div>
+    <div class="stats" id="cpStats"></div>
+    <div class="busca">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="cpBusca" placeholder="Buscar fornecedor, nº, item..." oninput="cpRenderPedidos()">
+    </div>
+    <div class="filtros" id="cpFiltros">
+      <div class="fbtn active" data-f="abertos" onclick="cpSetFiltro('abertos',this)">Em aberto</div>
+      <div class="fbtn" data-f="rascunho" onclick="cpSetFiltro('rascunho',this)">Rascunho</div>
+      <div class="fbtn" data-f="enviado" onclick="cpSetFiltro('enviado',this)">Enviado</div>
+      <div class="fbtn" data-f="transito" onclick="cpSetFiltro('transito',this)">Em trânsito</div>
+      <div class="fbtn" data-f="recebido" onclick="cpSetFiltro('recebido',this)">Recebido</div>
+      <div class="fbtn" data-f="todos" onclick="cpSetFiltro('todos',this)">Todos</div>
+    </div>
+    <div class="os-list" id="cpLista"></div>
+  </div>
+
+  <div id="cpViewForn" style="display:none">
+    <div class="cp-head">
+      <div class="cp-title">Fornecedores</div>
+      <button class="cp-mini prim" onclick="cpEditarForn(null)">+ Fornecedor</button>
+    </div>
+    <div class="cp-hint" style="margin-bottom:10px">O prazo real é calculado sozinho a partir da data do pedido e da data de entrada da nota de cada pedido recebido.</div>
+    <div class="os-list" id="cpFornLista"></div>
+  </div>
+</div>
+
+<!-- MODAL PEDIDO (editar) -->
+<div class="modal-ov" id="cpPedOv" onclick="if(event.target===this)cpFechar('cpPedOv')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-placa" style="font-size:28px;letter-spacing:2px" id="cpPedTit">Novo pedido</div>
+    <div class="modal-num" id="cpPedSub"></div>
+    <div class="field">
+      <label>Fornecedor</label>
+      <select id="cpPedForn"></select>
+    </div>
+    <div class="field2">
+      <div class="field"><label>Data do pedido</label><input type="date" id="cpPedData"></div>
+      <div class="field"><label>Previsão de chegada</label><input type="date" id="cpPedPrev"></div>
+    </div>
+    <div class="field"><label>Condição de pagamento / frete</label><input type="text" id="cpPedCond" placeholder="Ex.: 30/60/90 · frete FOB"></div>
+    <div class="field"><label>Observação</label><textarea id="cpPedObs" style="min-height:50px"></textarea></div>
+
+    <div class="card-title" style="margin-top:6px">Itens <span style="margin-left:auto;font-size:12px;color:var(--tx3)" id="cpPedQtdItens"></span></div>
+    <div id="cpPedItens"></div>
+    <div class="cp-acts" style="margin-top:4px">
+      <button class="cp-mini" onclick="cpAddItem()">+ Item</button>
+      <button class="cp-mini" onclick="cpAbrirImport()">Colar da planilha</button>
+    </div>
+    <div class="cp-tot"><span id="cpPedTotQ">0 itens · 0 un.</span><b id="cpPedTotV">R$ 0,00</b></div>
+    <div class="cp-hint" id="cpPedMinAviso"></div>
+
+    <button class="btn btn-prim" style="margin-top:10px" onclick="cpSalvarPedido()">Salvar pedido</button>
+    <button class="btn btn-sec" onclick="cpFechar('cpPedOv')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR -->
+<div class="modal-ov" id="cpImpOv" onclick="if(event.target===this)cpFechar('cpImpOv')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-placa" style="font-size:26px;letter-spacing:2px">Colar da planilha</div>
+    <div class="cp-hint" style="margin-bottom:10px">Na planilha do pedido, selecione as linhas (com ou sem o cabeçalho), copie e cole aqui. Colunas aceitas: Código fabricante · Código fornecedor · Descrição · Qtd · Custo unit. · Total · Observação.</div>
+    <div class="field"><textarea id="cpImpTxt" style="min-height:160px;font-size:13px" placeholder="Cole aqui..."></textarea></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="cpImpSubst" style="width:auto"><label for="cpImpSubst" style="margin:0">Substituir os itens atuais</label></div>
+    <button class="btn btn-prim" onclick="cpImportar()">Importar itens</button>
+    <button class="btn btn-sec" onclick="cpFechar('cpImpOv')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL DETALHE PEDIDO -->
+<div class="modal-ov" id="cpDetOv" onclick="if(event.target===this)cpFechar('cpDetOv')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="cpDetBody"></div>
+  </div>
+</div>
+
+<!-- MODAL RECEBER -->
+<div class="modal-ov" id="cpRecOv" onclick="if(event.target===this)cpFechar('cpRecOv')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-placa" style="font-size:26px;letter-spacing:2px">Registrar chegada</div>
+    <div class="modal-num" id="cpRecSub"></div>
+    <div class="field2">
+      <div class="field"><label>Data de entrada da NF</label><input type="date" id="cpRecData"></div>
+      <div class="field"><label>Nº da NF</label><input type="text" id="cpRecNF" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>Valor da NF (R$)</label><input type="text" id="cpRecValor" inputmode="decimal" placeholder="0,00"></div>
+    <div class="field">
+      <label>Conferência</label>
+      <select id="cpRecConf">
+        <option value="ok">Chegou tudo conforme o pedido</option>
+        <option value="parcial">Chegou faltando itens</option>
+        <option value="divergente">Chegou com divergência (item/preço)</option>
+      </select>
+    </div>
+    <div class="field"><label>Observação da chegada</label><textarea id="cpRecObs" style="min-height:50px" placeholder="O que faltou ou veio diferente"></textarea></div>
+    <button class="btn btn-prim" onclick="cpSalvarRecebimento()">Confirmar chegada</button>
+    <button class="btn btn-sec" onclick="cpFechar('cpRecOv')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL FORNECEDOR -->
+<div class="modal-ov" id="cpFornOv" onclick="if(event.target===this)cpFechar('cpFornOv')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-placa" style="font-size:26px;letter-spacing:2px" id="cpFornTit">Fornecedor</div>
+    <div class="field"><label>Nome</label><input type="text" id="cpFNome"></div>
+    <div class="field2">
+      <div class="field"><label>Código no TGA</label><input type="text" id="cpFCod" placeholder="F0...."></div>
+      <div class="field"><label>Prazo informado (dias)</label><input type="number" id="cpFPrazo" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>Pedido mínimo</label><input type="text" id="cpFMin" placeholder="Ex.: 22 capotas · R$ 1.500 · sem mínimo"></div>
+    <div class="field">
+      <label>Frete</label>
+      <select id="cpFFrete">
+        <option value="">—</option>
+        <option>Por conta do fornecedor (CIF)</option>
+        <option>Por conta da Ferrauto (FOB)</option>
+        <option>Grátis acima de um valor/quantidade</option>
+      </select>
+    </div>
+    <div class="field"><label>Detalhe do frete</label><input type="text" id="cpFFreteObs" placeholder="Ex.: ~R$ 35 por capota · grátis a partir de 60 peças"></div>
+    <div class="field2">
+      <div class="field"><label>Contato</label><input type="text" id="cpFContato"></div>
+      <div class="field"><label>WhatsApp</label><input type="tel" id="cpFWhats" placeholder="66 9...."></div>
+    </div>
+    <div class="field"><label>Observação</label><textarea id="cpFObs" style="min-height:50px"></textarea></div>
+    <button class="btn btn-prim" onclick="cpSalvarForn()">Salvar fornecedor</button>
+    <button class="btn-red btn" id="cpFDel" onclick="cpExcluirForn()">Excluir fornecedor</button>
+    <button class="btn btn-sec" onclick="cpFechar('cpFornOv')">Cancelar</button>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -758,7 +941,9 @@ const USUARIOS = {
   'Celso':  {senha:'342319', nivel:'admin'},
   'Higor':  {senha:'123456', nivel:'admin'},
   'Weryk':  {senha:'123456', nivel:'atendente'},
-  'José':   {senha:'123456', nivel:'atendente'}
+  'José':   {senha:'123456', nivel:'atendente'},
+  'Antenor':{senha:'123456', nivel:'compras'},
+  'Eduardo':{senha:'123456', nivel:'compras'}
 };
 
 let usuarioLogado = null;
@@ -801,7 +986,8 @@ function doLogin(){
       }
     });
     atualizarLabelAt();
-    startPolling();
+    if(ud.nivel!=='compras') startPolling();
+    cpAplicarAcesso();
   } else {
     err.textContent='Usuário ou senha incorretos';
     err.style.display='block';
@@ -950,6 +1136,8 @@ function startPolling(){
 
 function atualizarAgora(){
   if(!usuarioLogado) return;
+  if(temCompras()) cpCarregar(true);
+  if(soCompras()) return;
   setSyncDot('sync');
   fbList().then(docs=>{
     ordens=docs; renderLista(); renderResumo(); updateCount(); setSyncDot('on'); atualizarPendentes();
@@ -2117,6 +2305,7 @@ function goTab(nome, el){
   document.getElementById('page-'+nome).classList.add('active');
   if(nome==='lista') renderLista();
   if(nome==='resumo') renderResumo();
+  if(nome==='compras'){ cpRender(); if(!cpCarregado) cpCarregar(); }
   if(nome==='analise'){ renderAnalise(); }
   if(nome==='relatorio'){
     const hoje=new Date().toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'}).split('/');
@@ -2131,6 +2320,517 @@ function showToast(msg,err=false){
   t.textContent=msg; t.className='toast'+(err?' err':'');
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+
+// ===================================================================
+// ===== MÓDULO COMPRAS =====
+// Acesso: Leila, Celso, Antenor, Eduardo. Antenor e Eduardo só veem Compras.
+// Dados no Firestore: coleções compras_pedidos e compras_fornecedores.
+// ===================================================================
+const COMPRAS_USERS = ['Leila','Celso','Antenor','Eduardo'];
+const CP_COL_PED = 'compras_pedidos';
+const CP_COL_FORN = 'compras_fornecedores';
+const CP_STATUS = {rascunho:'Rascunho', enviado:'Enviado', transito:'Em trânsito', recebido:'Recebido', cancelado:'Cancelado'};
+
+let cpPedidos = [];
+let cpForns = [];
+let cpFiltro = 'abertos';
+let cpPedEditId = null;
+let cpItensTmp = [];
+let cpRecId = null;
+let cpFornEditId = null;
+let cpCarregado = false;
+
+function temCompras(){ return COMPRAS_USERS.includes(usuarioLogado); }
+function soCompras(){ return nivelUsuario === 'compras'; }
+
+// ----- Firestore genérico -----
+async function cpFbAdd(col, data){
+  const r = await fetch(FB_BASE+'/'+col+'?key='+FB_KEY, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(toFS(data))});
+  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,120)); }
+  return fromFS(await r.json());
+}
+async function cpFbUpdate(col, id, data){
+  const fields = toFS(data).fields;
+  const mask = Object.keys(fields).map(k=>'updateMask.fieldPaths='+k).join('&');
+  const r = await fetch(FB_BASE+'/'+col+'/'+id+'?key='+FB_KEY+'&'+mask, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({fields})});
+  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,120)); }
+}
+async function cpFbDelete(col, id){
+  const r = await fetch(FB_BASE+'/'+col+'/'+id+'?key='+FB_KEY, {method:'DELETE'});
+  if(!r.ok){ const t=await r.text(); throw new Error('HTTP '+r.status+': '+t.slice(0,120)); }
+}
+async function cpFbList(col){
+  let out=[], token='';
+  do{
+    const r = await fetch(FB_BASE+'/'+col+'?key='+FB_KEY+'&pageSize=300'+(token?'&pageToken='+encodeURIComponent(token):''));
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    (j.documents||[]).forEach(d=>out.push(fromFS(d)));
+    token = j.nextPageToken||'';
+  } while(token);
+  return out;
+}
+
+// ----- Utilidades -----
+function cpEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cpNum(v){
+  if(typeof v==='number') return v;
+  let s=String(v||'').replace(/R\$|\s/g,'');
+  if(!s) return 0;
+  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  const n=parseFloat(s); return isNaN(n)?0:n;
+}
+function cpMoeda(n){ return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function cpHojeISO(){ const p=new Date().toLocaleDateString('pt-BR',{timeZone:'America/Cuiaba'}).split('/'); return p[2]+'-'+p[1]+'-'+p[0]; }
+function cpDataBR(iso){ if(!iso) return '—'; const p=iso.split('-'); return p.length===3? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+function cpDias(a,b){ if(!a||!b) return null; return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000); }
+function cpSomaISO(iso,d){ const x=new Date(iso+'T12:00:00'); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); }
+function cpItens(p){ try{ return JSON.parse(p.itensJSON||'[]'); }catch(e){ return []; } }
+function cpTotais(itens){ let q=0,v=0; itens.forEach(i=>{ q+=cpNum(i.qtd); v+=cpNum(i.qtd)*cpNum(i.custo); }); return {cod:itens.length, q, v}; }
+function cpFornPorId(id){ return cpForns.find(f=>f.id===id); }
+function cpMediana(arr){ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function cpPrazoReal(fornId){
+  const ds = cpPedidos.filter(p=>p.fornId===fornId && p.status==='recebido' && p.dataPedido && p.dataEntradaNF)
+    .map(p=>cpDias(p.dataPedido,p.dataEntradaNF)).filter(d=>d!==null && d>=0);
+  return {med:cpMediana(ds), n:ds.length};
+}
+function cpFechar(id){ document.getElementById(id).classList.remove('open'); }
+function cpAbrir(id){ document.getElementById(id).classList.add('open'); }
+
+// ----- Carga -----
+async function cpCarregar(silencioso){
+  try{
+    setSyncDot('sync');
+    const [p,f] = await Promise.all([cpFbList(CP_COL_PED), cpFbList(CP_COL_FORN)]);
+    cpPedidos = p.sort((a,b)=>String(b.criadoISO||'').localeCompare(String(a.criadoISO||'')));
+    cpForns = f.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+    cpCarregado = true;
+    setSyncDot('on');
+    cpRender();
+  }catch(e){
+    console.error('Compras:',e); setSyncDot('');
+    if(!silencioso) showToast('Erro ao carregar Compras: '+e.message, true);
+  }
+}
+function cpRender(){ cpRenderPedidos(); cpRenderForns(); }
+
+function cpSub(v){
+  document.getElementById('cpSubPed').classList.toggle('active', v==='pedidos');
+  document.getElementById('cpSubForn').classList.toggle('active', v==='fornecedores');
+  document.getElementById('cpViewPedidos').style.display = v==='pedidos'?'block':'none';
+  document.getElementById('cpViewForn').style.display = v==='fornecedores'?'block':'none';
+}
+function cpSetFiltro(f,el){
+  cpFiltro=f;
+  document.querySelectorAll('#cpFiltros .fbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  cpRenderPedidos();
+}
+
+// ----- Lista de pedidos -----
+function cpRenderPedidos(){
+  const hoje = cpHojeISO();
+  const abertos = cpPedidos.filter(p=>['rascunho','enviado','transito'].includes(p.status));
+  const atrasados = abertos.filter(p=>p.status!=='rascunho' && p.previsao && p.previsao<hoje);
+  const valAberto = abertos.filter(p=>p.status!=='rascunho').reduce((s,p)=>s+cpTotais(cpItens(p)).v,0);
+  const mes = hoje.slice(0,7);
+  const recMes = cpPedidos.filter(p=>p.status==='recebido' && String(p.dataEntradaNF||'').startsWith(mes));
+  document.getElementById('cpStats').innerHTML =
+    `<div class="stat"><div class="stat-v">${abertos.length}</div><div class="stat-l">Em aberto</div></div>`+
+    `<div class="stat"><div class="stat-v" style="color:${atrasados.length?'var(--red)':'var(--ac)'}">${atrasados.length}</div><div class="stat-l">Atrasados</div></div>`+
+    `<div class="stat"><div class="stat-v" style="font-size:22px">${cpMoeda(valAberto)}</div><div class="stat-l">A chegar</div></div>`+
+    `<div class="stat"><div class="stat-v">${recMes.length}</div><div class="stat-l">Recebidos no mês</div></div>`;
+
+  const q = (document.getElementById('cpBusca').value||'').toLowerCase().trim();
+  let lista = cpPedidos.filter(p=>{
+    if(cpFiltro==='abertos') return ['rascunho','enviado','transito'].includes(p.status);
+    if(cpFiltro==='todos') return true;
+    return p.status===cpFiltro;
+  });
+  if(q) lista = lista.filter(p=>{
+    const txt = [p.numero,p.fornNome,p.obs,p.nf].join(' ')+' '+cpItens(p).map(i=>[i.codFab,i.codForn,i.desc].join(' ')).join(' ');
+    return txt.toLowerCase().includes(q);
+  });
+  const el = document.getElementById('cpLista');
+  if(!lista.length){ el.innerHTML='<div class="empty"><p>Nenhum pedido aqui.</p></div>'; return; }
+  el.innerHTML = lista.map(p=>{
+    const t = cpTotais(cpItens(p));
+    const atras = p.status!=='rascunho' && p.status!=='recebido' && p.status!=='cancelado' && p.previsao && p.previsao<hoje;
+    return `<div class="os-card" onclick="cpAbrirDetalhe('${p.id}')">
+      <div class="os-card-h"><div><div class="cp-forn">${cpEsc(p.fornNome||'Sem fornecedor')}</div><div class="os-num">Pedido #${cpEsc(p.numero||'')} · ${cpDataBR(p.dataPedido)}</div></div>
+      <span class="cp-st cp-st-${p.status}">${CP_STATUS[p.status]||p.status}</span></div>
+      <div class="os-card-b">
+        <div class="os-row"><span class="os-lbl">Itens</span><span class="os-val">${t.cod} códigos · ${t.q} un.</span></div>
+        <div class="os-row"><span class="os-lbl">Previsão</span><span class="os-val" style="${atras?'color:var(--red);font-weight:600':''}">${cpDataBR(p.previsao)}${atras?' · ATRASADO':''}</span></div>
+        ${p.status==='recebido'?`<div class="os-row"><span class="os-lbl">Chegou</span><span class="os-val">${cpDataBR(p.dataEntradaNF)}${p.nf?' · NF '+cpEsc(p.nf):''}${p.conferencia&&p.conferencia!=='ok'?' · <span style="color:var(--red)">'+(p.conferencia==='parcial'?'faltou item':'divergência')+'</span>':''}</span></div>`:''}
+      </div>
+      <div class="os-card-f"><span style="font-size:12px;color:var(--tx3)">${cpEsc(p.criadoPor||'')}</span><span class="os-valor">${cpMoeda(t.v)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ----- Detalhe do pedido -----
+function cpAbrirDetalhe(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  const itens = cpItens(p), t = cpTotais(itens), f = cpFornPorId(p.fornId);
+  const linhas = itens.map(i=>`<tr><td>${cpEsc(i.codFab)}${i.codForn?'<br><span style="color:var(--tx3);font-size:11px">'+cpEsc(i.codForn)+'</span>':''}</td><td>${cpEsc(i.desc)}${i.obs?'<br><span style="color:var(--tx3);font-size:11px">'+cpEsc(i.obs)+'</span>':''}</td><td class="n">${cpNum(i.qtd)}</td><td class="n">${cpMoeda(cpNum(i.qtd)*cpNum(i.custo))}</td></tr>`).join('');
+  let acoes = '';
+  if(p.status==='rascunho') acoes += `<button class="cp-mini prim" onclick="cpMudarStatus('${p.id}','enviado')">Marcar enviado</button>`;
+  if(p.status==='enviado') acoes += `<button class="cp-mini prim" onclick="cpMudarStatus('${p.id}','transito')">Em trânsito</button>`;
+  if(['enviado','transito'].includes(p.status)) acoes += `<button class="cp-mini prim" style="background:var(--grn);border-color:var(--grn)" onclick="cpAbrirReceber('${p.id}')">Registrar chegada</button>`;
+  if(p.status!=='recebido') acoes += `<button class="cp-mini" onclick="cpEditarPedido('${p.id}')">Editar</button>`;
+  acoes += `<button class="cp-mini" onclick="cpWhatsPedido('${p.id}')">WhatsApp</button>`;
+  acoes += `<button class="cp-mini" onclick="cpImprimir('${p.id}')">PDF / Imprimir</button>`;
+  acoes += `<button class="cp-mini" onclick="cpCopiar('${p.id}')">Copiar itens</button>`;
+  acoes += `<button class="cp-mini" onclick="cpDuplicar('${p.id}')">Duplicar</button>`;
+  if(p.status==='recebido') acoes += `<button class="cp-mini" onclick="cpMudarStatus('${p.id}','transito')">Desfazer chegada</button>`;
+  if(!['recebido','cancelado'].includes(p.status)) acoes += `<button class="cp-mini red" onclick="cpMudarStatus('${p.id}','cancelado')">Cancelar pedido</button>`;
+  if(['rascunho','cancelado'].includes(p.status)) acoes += `<button class="cp-mini red" onclick="cpExcluirPedido('${p.id}')">Excluir</button>`;
+
+  const prazo = p.status==='recebido' ? cpDias(p.dataPedido,p.dataEntradaNF) : null;
+  document.getElementById('cpDetBody').innerHTML = `
+    <div class="modal-placa" style="font-size:28px;letter-spacing:2px">${cpEsc(p.fornNome||'')}</div>
+    <div class="modal-num">Pedido #${cpEsc(p.numero||'')} · <span class="cp-st cp-st-${p.status}">${CP_STATUS[p.status]||p.status}</span></div>
+    <div class="msec">
+      <div class="cp-kv"><span>Data do pedido</span><span>${cpDataBR(p.dataPedido)}</span></div>
+      <div class="cp-kv"><span>Previsão</span><span>${cpDataBR(p.previsao)}</span></div>
+      ${p.dataEnvio?`<div class="cp-kv"><span>Enviado em</span><span>${cpDataBR(p.dataEnvio)}</span></div>`:''}
+      ${p.status==='recebido'?`<div class="cp-kv"><span>Entrada da NF</span><span>${cpDataBR(p.dataEntradaNF)}${prazo!==null?' ('+prazo+' dias)':''}</span></div>
+      <div class="cp-kv"><span>NF</span><span>${cpEsc(p.nf||'—')}${p.valorNF?' · '+cpMoeda(p.valorNF):''}</span></div>
+      <div class="cp-kv"><span>Conferência</span><span>${{ok:'Conforme',parcial:'Faltou item',divergente:'Divergência'}[p.conferencia]||'—'}</span></div>`:''}
+      ${p.cond?`<div class="cp-kv"><span>Pagto / frete</span><span>${cpEsc(p.cond)}</span></div>`:''}
+      ${f&&f.pedMin?`<div class="cp-kv"><span>Pedido mínimo</span><span>${cpEsc(f.pedMin)}</span></div>`:''}
+      <div class="cp-kv"><span>Criado por</span><span>${cpEsc(p.criadoPor||'')}</span></div>
+      ${p.obs?`<div style="margin-top:6px;font-size:14px;color:var(--tx2)">${cpEsc(p.obs)}</div>`:''}
+      ${p.obsRec?`<div style="margin-top:6px;font-size:14px;color:var(--red)">Chegada: ${cpEsc(p.obsRec)}</div>`:''}
+    </div>
+    <div class="msec" style="overflow-x:auto">
+      <table class="cp-tbl"><thead><tr><th>Código</th><th>Descrição</th><th style="text-align:right">Qtd</th><th style="text-align:right">Total</th></tr></thead><tbody>${linhas||'<tr><td colspan="4">Sem itens</td></tr>'}</tbody></table>
+      <div class="cp-tot"><span>${t.cod} códigos · ${t.q} un.</span><b>${cpMoeda(t.v)}</b></div>
+    </div>
+    <div class="cp-acts">${acoes}</div>
+    <button class="btn btn-sec" style="margin-top:10px" onclick="cpFechar('cpDetOv')">Fechar</button>`;
+  cpAbrir('cpDetOv');
+}
+
+async function cpMudarStatus(id, st){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  if(st==='cancelado' && !confirm('Cancelar este pedido?')) return;
+  if(st==='transito' && p.status==='recebido' && !confirm('Desfazer o registro de chegada?')) return;
+  const upd = {status:st, atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()};
+  if(st==='enviado' && !p.dataEnvio) upd.dataEnvio = cpHojeISO();
+  try{ await cpFbUpdate(CP_COL_PED, id, upd); Object.assign(p, upd); cpRender(); cpAbrirDetalhe(id); showToast('Pedido: '+CP_STATUS[st]); }
+  catch(e){ showToast('Erro: '+e.message, true); }
+}
+async function cpExcluirPedido(id){
+  if(!confirm('Excluir este pedido definitivamente?')) return;
+  try{ await cpFbDelete(CP_COL_PED, id); cpPedidos = cpPedidos.filter(p=>p.id!==id); cpFechar('cpDetOv'); cpRender(); showToast('Pedido excluído'); }
+  catch(e){ showToast('Erro: '+e.message, true); }
+}
+
+// ----- Novo / editar pedido -----
+function cpPreencherSelForn(sel){
+  const s = document.getElementById('cpPedForn');
+  s.innerHTML = '<option value="">Selecione</option>'+cpForns.map(f=>`<option value="${f.id}">${cpEsc(f.nome)}${f.codTGA?' ('+cpEsc(f.codTGA)+')':''}</option>`).join('')+'<option value="__novo">+ Cadastrar novo fornecedor</option>';
+  s.value = sel||'';
+  s.onchange = ()=>{
+    if(s.value==='__novo'){ s.value=''; cpEditarForn(null); return; }
+    cpSugerirPrevisao(); cpAvisoMin();
+  };
+}
+function cpSugerirPrevisao(){
+  const fid = document.getElementById('cpPedForn').value, d = document.getElementById('cpPedData').value;
+  if(!fid||!d) return;
+  const f = cpFornPorId(fid); const pr = cpPrazoReal(fid);
+  const dias = pr.med!==null && pr.n>=1 ? Math.round(pr.med) : (f && Number(f.prazo)) || null;
+  if(dias) document.getElementById('cpPedPrev').value = cpSomaISO(d, dias);
+}
+function cpAvisoMin(){
+  const f = cpFornPorId(document.getElementById('cpPedForn').value);
+  const partes=[];
+  if(f && f.pedMin) partes.push('Pedido mínimo: '+f.pedMin);
+  if(f && (f.frete||f.freteObs)) partes.push('Frete: '+[f.frete,f.freteObs].filter(Boolean).join(' · '));
+  document.getElementById('cpPedMinAviso').textContent = partes.join(' | ');
+}
+function cpNovoPedido(){
+  cpPedEditId = null; cpItensTmp = [];
+  document.getElementById('cpPedTit').textContent='Novo pedido';
+  document.getElementById('cpPedSub').textContent='';
+  cpPreencherSelForn('');
+  document.getElementById('cpPedData').value = cpHojeISO();
+  document.getElementById('cpPedData').onchange = cpSugerirPrevisao;
+  document.getElementById('cpPedPrev').value = '';
+  document.getElementById('cpPedCond').value = '';
+  document.getElementById('cpPedObs').value = '';
+  cpRenderItensEdit(); cpAvisoMin();
+  cpAbrir('cpPedOv');
+}
+function cpEditarPedido(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  cpFechar('cpDetOv');
+  cpPedEditId = id; cpItensTmp = cpItens(p);
+  document.getElementById('cpPedTit').textContent='Editar pedido';
+  document.getElementById('cpPedSub').textContent='#'+(p.numero||'');
+  cpPreencherSelForn(p.fornId);
+  document.getElementById('cpPedData').value = p.dataPedido||'';
+  document.getElementById('cpPedData').onchange = cpSugerirPrevisao;
+  document.getElementById('cpPedPrev').value = p.previsao||'';
+  document.getElementById('cpPedCond').value = p.cond||'';
+  document.getElementById('cpPedObs').value = p.obs||'';
+  cpRenderItensEdit(); cpAvisoMin();
+  cpAbrir('cpPedOv');
+}
+function cpDuplicar(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  cpFechar('cpDetOv');
+  cpNovoPedido();
+  cpItensTmp = cpItens(p);
+  document.getElementById('cpPedForn').value = p.fornId||'';
+  document.getElementById('cpPedCond').value = p.cond||'';
+  cpSugerirPrevisao(); cpAvisoMin(); cpRenderItensEdit();
+}
+function cpRenderItensEdit(){
+  const el = document.getElementById('cpPedItens');
+  el.innerHTML = cpItensTmp.map((i,k)=>`<div class="cp-item">
+    <div class="cp-item-g">
+      <div><label>Cód. fabricante</label><input value="${cpEsc(i.codFab)}" oninput="cpItensTmp[${k}].codFab=this.value"></div>
+      <div><label>Cód. fornecedor</label><input value="${cpEsc(i.codForn)}" oninput="cpItensTmp[${k}].codForn=this.value"></div>
+    </div>
+    <div style="margin-top:6px"><label>Descrição</label><input value="${cpEsc(i.desc)}" oninput="cpItensTmp[${k}].desc=this.value"></div>
+    <div class="cp-item-g3">
+      <div><label>Qtd</label><input inputmode="decimal" value="${cpEsc(i.qtd)}" oninput="cpItensTmp[${k}].qtd=this.value;cpAtualizarTot()"></div>
+      <div><label>Custo unit.</label><input inputmode="decimal" value="${cpEsc(i.custo)}" oninput="cpItensTmp[${k}].custo=this.value;cpAtualizarTot()"></div>
+      <button class="cp-del" onclick="cpItensTmp.splice(${k},1);cpRenderItensEdit()">✕</button>
+    </div>
+  </div>`).join('') || '<div class="cp-hint" style="margin-bottom:6px">Nenhum item. Adicione um a um ou cole da planilha do pedido.</div>';
+  cpAtualizarTot();
+}
+function cpAtualizarTot(){
+  const t = cpTotais(cpItensTmp);
+  document.getElementById('cpPedTotQ').textContent = t.cod+' códigos · '+t.q+' un.';
+  document.getElementById('cpPedTotV').textContent = cpMoeda(t.v);
+  document.getElementById('cpPedQtdItens').textContent = t.cod?t.cod+' itens':'';
+}
+function cpAddItem(){ cpItensTmp.push({codFab:'',codForn:'',desc:'',qtd:'1',custo:'',obs:''}); cpRenderItensEdit(); }
+
+async function cpSalvarPedido(){
+  const fid = document.getElementById('cpPedForn').value;
+  if(!fid){ showToast('Escolha o fornecedor', true); return; }
+  const itens = cpItensTmp.filter(i=>(i.codFab||i.codForn||i.desc) && cpNum(i.qtd)>0)
+    .map(i=>({codFab:String(i.codFab||'').trim(), codForn:String(i.codForn||'').trim(), desc:String(i.desc||'').trim(), qtd:cpNum(i.qtd), custo:cpNum(i.custo), obs:String(i.obs||'').trim()}));
+  if(!itens.length){ showToast('Inclua pelo menos um item com quantidade', true); return; }
+  const f = cpFornPorId(fid);
+  const t = cpTotais(itens);
+  const dados = {
+    fornId:fid, fornNome:f?f.nome:'', fornCod:f?(f.codTGA||''):'',
+    dataPedido:document.getElementById('cpPedData').value||cpHojeISO(),
+    previsao:document.getElementById('cpPedPrev').value||'',
+    cond:document.getElementById('cpPedCond').value.trim(),
+    obs:document.getElementById('cpPedObs').value.trim(),
+    itensJSON:JSON.stringify(itens), totalItens:t.cod, totalUn:t.q, totalValor:Math.round(t.v*100)/100,
+    atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()
+  };
+  try{
+    if(cpPedEditId){
+      await cpFbUpdate(CP_COL_PED, cpPedEditId, dados);
+      Object.assign(cpPedidos.find(p=>p.id===cpPedEditId), dados);
+      showToast('Pedido atualizado');
+    } else {
+      const maxN = cpPedidos.reduce((m,p)=>Math.max(m, Number(p.numero)||0), 0);
+      Object.assign(dados, {numero:String(maxN+1), status:'rascunho', criadoPor:usuarioLogado, criadoISO:new Date().toISOString()});
+      const novo = await cpFbAdd(CP_COL_PED, dados);
+      cpPedidos.unshift(novo);
+      showToast('Pedido #'+dados.numero+' criado');
+    }
+    cpFechar('cpPedOv'); cpRender();
+  }catch(e){ showToast('Erro ao salvar: '+e.message, true); }
+}
+
+// ----- Importar colando da planilha -----
+function cpAbrirImport(){ document.getElementById('cpImpTxt').value=''; document.getElementById('cpImpSubst').checked=false; cpAbrir('cpImpOv'); }
+function cpImportar(){
+  const txt = document.getElementById('cpImpTxt').value;
+  const linhas = txt.split(/\r?\n/).map(l=>l.split('\t')).filter(c=>c.some(x=>x.trim()));
+  if(!linhas.length){ showToast('Nada para importar', true); return; }
+  // Detecta cabeçalho
+  let idx = {codFab:0, codForn:1, desc:2, qtd:3, custo:4, obs:6};
+  const norm = s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const h = linhas[0].map(norm);
+  const achou = h.some(c=>c.includes('descri')) && h.some(c=>c==='qtd'||c.includes('quant')||c.includes('pedir'));
+  if(achou){
+    idx = {codFab:-1, codForn:-1, desc:-1, qtd:-1, custo:-1, obs:-1};
+    h.forEach((c,k)=>{
+      if(c.includes('fabric') && idx.codFab<0) idx.codFab=k;
+      else if(c.includes('fornec') && c.includes('cod') && idx.codForn<0) idx.codForn=k;
+      else if(c.includes('descri') && idx.desc<0) idx.desc=k;
+      else if((c==='qtd'||c.includes('quant')||c==='pedir') && idx.qtd<0) idx.qtd=k;
+      else if((c.includes('custo')||c.includes('unit')) && idx.custo<0) idx.custo=k;
+      else if(c.includes('observ') && idx.obs<0) idx.obs=k;
+    });
+    if(idx.codFab<0) idx.codFab = h.findIndex(c=>c.includes('cod'));
+    linhas.shift();
+  } else if(linhas[0].length===3){
+    idx = {codFab:0, codForn:-1, desc:1, qtd:2, custo:-1, obs:-1}; // formato "Código | Descrição | Pedir"
+  }
+  const g = (c,k)=> k>=0 && k<c.length ? String(c[k]).trim() : '';
+  const novos = linhas.map(c=>({codFab:g(c,idx.codFab), codForn:g(c,idx.codForn), desc:g(c,idx.desc), qtd:String(cpNum(g(c,idx.qtd))), custo:g(c,idx.custo)?String(cpNum(g(c,idx.custo))):'', obs:g(c,idx.obs)}))
+    .filter(i=>(i.codFab||i.desc) && cpNum(i.qtd)>0 && !/^total/i.test(i.codFab) && !/^total/i.test(i.desc));
+  if(!novos.length){ showToast('Não encontrei itens com quantidade', true); return; }
+  if(document.getElementById('cpImpSubst').checked) cpItensTmp = [];
+  cpItensTmp = cpItensTmp.concat(novos);
+  cpFechar('cpImpOv'); cpRenderItensEdit();
+  showToast(novos.length+' itens importados');
+}
+
+// ----- Recebimento -----
+function cpAbrirReceber(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  cpRecId = id; cpFechar('cpDetOv');
+  document.getElementById('cpRecSub').textContent = (p.fornNome||'')+' · Pedido #'+(p.numero||'');
+  document.getElementById('cpRecData').value = cpHojeISO();
+  document.getElementById('cpRecNF').value = '';
+  document.getElementById('cpRecValor').value = '';
+  document.getElementById('cpRecConf').value = 'ok';
+  document.getElementById('cpRecObs').value = '';
+  cpAbrir('cpRecOv');
+}
+async function cpSalvarRecebimento(){
+  const p = cpPedidos.find(x=>x.id===cpRecId); if(!p) return;
+  const d = document.getElementById('cpRecData').value;
+  if(!d){ showToast('Informe a data de entrada da NF', true); return; }
+  const conf = document.getElementById('cpRecConf').value, obs = document.getElementById('cpRecObs').value.trim();
+  if(conf!=='ok' && !obs){ showToast('Descreva o que faltou ou veio diferente', true); return; }
+  const upd = {status:'recebido', dataEntradaNF:d, nf:document.getElementById('cpRecNF').value.trim(),
+    valorNF:cpNum(document.getElementById('cpRecValor').value), conferencia:conf, obsRec:obs,
+    recebidoPor:usuarioLogado, atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()};
+  try{
+    await cpFbUpdate(CP_COL_PED, p.id, upd); Object.assign(p, upd);
+    cpFechar('cpRecOv'); cpRender();
+    const dias = cpDias(p.dataPedido, d);
+    showToast('Chegada registrada'+(dias!==null?' · '+dias+' dias desde o pedido':''));
+  }catch(e){ showToast('Erro: '+e.message, true); }
+}
+
+// ----- Saídas: WhatsApp, impressão, copiar -----
+function cpTextoPedido(p){
+  const itens = cpItens(p);
+  let s = '*Pedido de compra Ferrauto #'+(p.numero||'')+'*\nData: '+cpDataBR(p.dataPedido)+'\n\n';
+  itens.forEach(i=>{ s += '• '+[i.codFab, i.codForn?'('+i.codForn+')':''].filter(Boolean).join(' ')+' – '+i.desc+' – *'+cpNum(i.qtd)+' un.*\n'; });
+  const t = cpTotais(itens);
+  s += '\nTotal: '+t.cod+' códigos · '+t.q+' unidades';
+  if(p.cond) s += '\nCondição/frete: '+p.cond;
+  if(p.obs) s += '\nObs.: '+p.obs;
+  return s;
+}
+function cpWhatsPedido(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  const f = cpFornPorId(p.fornId);
+  let tel = f && f.whats ? String(f.whats).replace(/\D/g,'') : '';
+  if(tel && !tel.startsWith('55')) tel = '55'+tel;
+  window.open('https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(cpTextoPedido(p)), '_blank');
+}
+function cpCopiar(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  const tsv = 'Código fabricante\tCódigo fornecedor\tDescrição\tQtd\tCusto unit.\tTotal\n' +
+    cpItens(p).map(i=>[i.codFab,i.codForn,i.desc,String(cpNum(i.qtd)).replace('.',','),cpNum(i.custo).toFixed(2).replace('.',','),(cpNum(i.qtd)*cpNum(i.custo)).toFixed(2).replace('.',',')].join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(()=>showToast('Itens copiados – cole na planilha')).catch(()=>showToast('Não consegui copiar', true));
+}
+function cpImprimir(id){
+  const p = cpPedidos.find(x=>x.id===id); if(!p) return;
+  const itens = cpItens(p), t = cpTotais(itens), f = cpFornPorId(p.fornId);
+  const linhas = itens.map(i=>`<tr><td>${cpEsc(i.codFab)}</td><td>${cpEsc(i.codForn)}</td><td>${cpEsc(i.desc)}</td><td style="text-align:right">${cpNum(i.qtd)}</td></tr>`).join('');
+  const w = window.open('', '_blank');
+  if(!w){ showToast('Libere pop-ups para imprimir', true); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Pedido ${cpEsc(p.numero)} - ${cpEsc(p.fornNome)}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;color:#000;margin:18px}h1{font-size:18px;margin:0}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #999;padding:4px 6px}th{background:#eee;text-align:left}.top{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px}@page{size:A4 portrait;margin:12mm}</style></head><body>
+  <div class="top"><div><h1>FERRAUTO AUTO PEÇAS</h1><div>Rua Arnaldo Estevão de Figueiredo, 1245 · Centro · Rondonópolis MT</div></div>
+  <div style="text-align:right"><b>PEDIDO DE COMPRA #${cpEsc(p.numero)}</b><br>Data: ${cpDataBR(p.dataPedido)}</div></div>
+  <p><b>Fornecedor:</b> ${cpEsc(p.fornNome)}${f&&f.codTGA?' ('+cpEsc(f.codTGA)+')':''}${p.cond?'<br><b>Condição/frete:</b> '+cpEsc(p.cond):''}${p.obs?'<br><b>Obs.:</b> '+cpEsc(p.obs):''}</p>
+  <table><thead><tr><th>Código fabricante</th><th>Código fornecedor</th><th>Descrição</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${linhas}</tbody></table>
+  <p><b>Total:</b> ${t.cod} códigos · ${t.q} unidades</p>
+  <script>window.onload=function(){window.print()}<\/script></body></html>`);
+  w.document.close();
+}
+
+// ----- Fornecedores -----
+function cpRenderForns(){
+  const el = document.getElementById('cpFornLista');
+  if(!cpForns.length){ el.innerHTML='<div class="empty"><p>Nenhum fornecedor cadastrado.</p></div>'; return; }
+  el.innerHTML = cpForns.map(f=>{
+    const pr = cpPrazoReal(f.id);
+    const nPed = cpPedidos.filter(p=>p.fornId===f.id).length;
+    const prazoTxt = pr.med!==null ? Math.round(pr.med)+' dias (real, '+pr.n+' '+(pr.n===1?'chegada':'chegadas')+')' : (f.prazo? f.prazo+' dias (informado)' : '—');
+    return `<div class="os-card" onclick="cpEditarForn('${f.id}')">
+      <div class="os-card-h"><div><div class="cp-forn">${cpEsc(f.nome)}</div><div class="os-num">${cpEsc(f.codTGA||'sem código TGA')} · ${nPed} pedidos</div></div></div>
+      <div class="os-card-b">
+        <div class="os-row"><span class="os-lbl">Prazo</span><span class="os-val">${prazoTxt}</span></div>
+        <div class="os-row"><span class="os-lbl">Mínimo</span><span class="os-val">${cpEsc(f.pedMin||'—')}</span></div>
+        <div class="os-row"><span class="os-lbl">Frete</span><span class="os-val">${cpEsc([f.frete,f.freteObs].filter(Boolean).join(' · ')||'—')}</span></div>
+      </div></div>`;
+  }).join('');
+}
+function cpEditarForn(id){
+  cpFornEditId = id;
+  const f = id ? cpFornPorId(id) : {};
+  document.getElementById('cpFornTit').textContent = id?'Editar fornecedor':'Novo fornecedor';
+  document.getElementById('cpFNome').value = f.nome||'';
+  document.getElementById('cpFCod').value = f.codTGA||'';
+  document.getElementById('cpFPrazo').value = f.prazo||'';
+  document.getElementById('cpFMin').value = f.pedMin||'';
+  document.getElementById('cpFFrete').value = f.frete||'';
+  document.getElementById('cpFFreteObs').value = f.freteObs||'';
+  document.getElementById('cpFContato').value = f.contato||'';
+  document.getElementById('cpFWhats').value = f.whats||'';
+  document.getElementById('cpFObs').value = f.obs||'';
+  document.getElementById('cpFDel').style.display = id?'flex':'none';
+  cpAbrir('cpFornOv');
+}
+async function cpSalvarForn(){
+  const nome = document.getElementById('cpFNome').value.trim();
+  if(!nome){ showToast('Informe o nome', true); return; }
+  const d = {nome, codTGA:document.getElementById('cpFCod').value.trim().toUpperCase(),
+    prazo:document.getElementById('cpFPrazo').value?Number(document.getElementById('cpFPrazo').value):null,
+    pedMin:document.getElementById('cpFMin').value.trim(), frete:document.getElementById('cpFFrete').value,
+    freteObs:document.getElementById('cpFFreteObs').value.trim(), contato:document.getElementById('cpFContato').value.trim(),
+    whats:document.getElementById('cpFWhats').value.trim(), obs:document.getElementById('cpFObs').value.trim(),
+    atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()};
+  try{
+    let fid = cpFornEditId;
+    if(fid){ await cpFbUpdate(CP_COL_FORN, fid, d); Object.assign(cpFornPorId(fid), d); }
+    else { const n = await cpFbAdd(CP_COL_FORN, d); cpForns.push(n); fid = n.id; }
+    cpForns.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+    cpFechar('cpFornOv'); cpRender(); showToast('Fornecedor salvo');
+    if(document.getElementById('cpPedOv').classList.contains('open')){ cpPreencherSelForn(fid); cpSugerirPrevisao(); cpAvisoMin(); }
+  }catch(e){ showToast('Erro: '+e.message, true); }
+}
+async function cpExcluirForn(){
+  if(!cpFornEditId) return;
+  if(cpPedidos.some(p=>p.fornId===cpFornEditId)){ showToast('Fornecedor tem pedidos – não pode excluir', true); return; }
+  if(!confirm('Excluir este fornecedor?')) return;
+  try{ await cpFbDelete(CP_COL_FORN, cpFornEditId); cpForns = cpForns.filter(f=>f.id!==cpFornEditId); cpFechar('cpFornOv'); cpRender(); showToast('Fornecedor excluído'); }
+  catch(e){ showToast('Erro: '+e.message, true); }
+}
+
+// ----- Acesso / abas conforme usuário -----
+function cpAplicarAcesso(){
+  const tabC = document.getElementById('tabCompras');
+  tabC.style.display = temCompras() ? '' : 'none';
+  document.querySelectorAll('#mainTabs .tab').forEach(t=>{
+    if(t.id==='tabCompras') return;
+    t.style.display = soCompras() ? 'none' : '';
+  });
+  document.getElementById('hCount').style.display = soCompras() ? 'none' : '';
+  document.querySelector('.hsub').textContent = soCompras() ? 'Compras' : 'Ordem de Serviço';
+  if(soCompras()){
+    goTab('compras', tabC);
+    cpCarregar().finally(()=>document.getElementById('loadingScreen').classList.add('hidden'));
+  } else {
+    const t1 = document.querySelector('#mainTabs .tab');
+    if(document.getElementById('page-compras').classList.contains('active')) goTab('nova', t1);
+    if(temCompras()) cpCarregar(true);
+  }
 }
 
 // ===== INIT =====
