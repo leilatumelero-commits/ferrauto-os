@@ -305,6 +305,16 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
 .cp-kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0;border-bottom:1px solid rgba(42,42,42,0.5)}
 .cp-kv span:first-child{color:var(--tx3)}
 .cp-kv span:last-child{color:var(--tx);text-align:right}
+.cp-mini-g{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--tx3);margin-top:6px}
+.cp-mini-g b{color:var(--tx);font-weight:600}
+.cp-selforn{background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:4px;font-size:13px;padding:4px 6px;max-width:100%}
+.cp-file{display:block;width:100%;background:var(--bg);border:1px dashed var(--bd);border-radius:var(--r);color:var(--tx2);font-size:14px;padding:12px}
+.cp-alerta{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.cp-alerta summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;list-style:none}
+.cp-alerta summary::-webkit-details-marker{display:none}
+.cp-al-t{font-family:var(--fh);font-weight:700;font-size:15px;letter-spacing:1px;color:var(--ac)}
+.cp-al-n{font-size:12px;color:var(--tx2);background:var(--sf2);padding:2px 9px;border-radius:20px}
+.cp-al-i{padding:8px 12px;border-top:1px solid var(--bd);font-size:14px;color:var(--tx)}
 </style>
 </head>
 <body>
@@ -538,6 +548,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
 <div class="page" id="page-compras">
   <div class="filtros" style="margin-bottom:12px">
     <div class="fbtn active" id="cpSubPed" onclick="cpSub('pedidos')">Pedidos</div>
+    <div class="fbtn" id="cpSubGer" onclick="cpSub('gerar')">Gerar pedido</div>
+    <div class="fbtn" id="cpSubAle" onclick="cpSub('alertas')">Alertas</div>
+    <div class="fbtn" id="cpSubAna" onclick="cpSub('analises')">Análises</div>
     <div class="fbtn" id="cpSubForn" onclick="cpSub('fornecedores')">Fornecedores</div>
   </div>
 
@@ -560,6 +573,36 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
       <div class="fbtn" data-f="todos" onclick="cpSetFiltro('todos',this)">Todos</div>
     </div>
     <div class="os-list" id="cpLista"></div>
+  </div>
+
+  <div id="cpViewGer" style="display:none">
+    <div class="cp-head"><div class="cp-title">Gerar pedido</div></div>
+    <div class="card">
+      <div class="cp-hint" style="margin:0 0 10px">Método 45 dias. No TGA, exporte em Excel o <b>Extrato de Movimentação</b> (filiais 1 até 2, de preferência 12 meses ou mais) e, se quiser os códigos do fabricante, o <b>Relatório de Estoque</b> com Refer. Fabricante. Pode ser um grupo, um fabricante ou tudo.</div>
+      <div class="field"><label>Extrato de movimentação (obrigatório)</label><input type="file" id="cpArqExt" class="cp-file" accept=".xlsx,.xls,.csv"></div>
+      <div class="field"><label>Relatório de estoque (opcional)</label><input type="file" id="cpArqEst" class="cp-file" accept=".xlsx,.xls,.csv"></div>
+      <div class="field2">
+        <div class="field"><label>Cobertura (dias)</label><input type="number" id="cpParCob" value="45" inputmode="numeric"></div>
+        <div class="field"><label>Prazo padrão (dias)</label><input type="number" id="cpParPrazo" value="10" inputmode="numeric"></div>
+      </div>
+      <div class="field2">
+        <div class="field"><label>Item caro a partir de (R$)</label><input type="number" id="cpParCaro" value="300" inputmode="numeric"></div>
+        <div class="field"><label>Item barato até (R$)</label><input type="number" id="cpParBarato" value="30" inputmode="numeric"></div>
+      </div>
+      <div class="cp-hint" style="margin:-4px 0 10px">O prazo de cada fornecedor vem do cadastro ou das chegadas registradas. Itens já em pedidos enviados ou em trânsito são descontados.</div>
+      <button class="btn btn-prim" id="cpBtnCalc" onclick="cpCalcular()">Calcular pedido</button>
+    </div>
+    <div id="cpGerRes"></div>
+  </div>
+
+  <div id="cpViewAle" style="display:none">
+    <div class="cp-head"><div class="cp-title">Alertas</div></div>
+    <div id="cpAlertasBody"></div>
+  </div>
+
+  <div id="cpViewAna" style="display:none">
+    <div class="cp-head"><div class="cp-title">Análises</div></div>
+    <div id="cpAnaBody"></div>
   </div>
 
   <div id="cpViewForn" style="display:none">
@@ -2414,13 +2457,13 @@ async function cpCarregar(silencioso){
     if(!silencioso) showToast('Erro ao carregar Compras: '+e.message, true);
   }
 }
-function cpRender(){ cpRenderPedidos(); cpRenderForns(); }
+function cpRender(){ cpRenderPedidos(); cpRenderForns(); if(typeof cpRenderAlertas==="function"){ cpRenderAlertas(); cpRenderAnalises(); } }
 
 function cpSub(v){
-  document.getElementById('cpSubPed').classList.toggle('active', v==='pedidos');
-  document.getElementById('cpSubForn').classList.toggle('active', v==='fornecedores');
-  document.getElementById('cpViewPedidos').style.display = v==='pedidos'?'block':'none';
-  document.getElementById('cpViewForn').style.display = v==='fornecedores'?'block':'none';
+  const mapa={pedidos:['cpSubPed','cpViewPedidos'], gerar:['cpSubGer','cpViewGer'], alertas:['cpSubAle','cpViewAle'], analises:['cpSubAna','cpViewAna'], fornecedores:['cpSubForn','cpViewForn']};
+  Object.entries(mapa).forEach(([k,[b,w]])=>{ document.getElementById(b).classList.toggle('active', k===v); document.getElementById(w).style.display = k===v?'block':'none'; });
+  if(v==='alertas') cpRenderAlertas();
+  if(v==='analises') cpRenderAnalises();
 }
 function cpSetFiltro(f,el){
   cpFiltro=f;
@@ -2619,7 +2662,7 @@ async function cpSalvarPedido(){
   const fid = document.getElementById('cpPedForn').value;
   if(!fid){ showToast('Escolha o fornecedor', true); return; }
   const itens = cpItensTmp.filter(i=>(i.codFab||i.codForn||i.desc) && cpNum(i.qtd)>0)
-    .map(i=>({codFab:String(i.codFab||'').trim(), codForn:String(i.codForn||'').trim(), desc:String(i.desc||'').trim(), qtd:cpNum(i.qtd), custo:cpNum(i.custo), obs:String(i.obs||'').trim()}));
+    .map(i=>({codFab:String(i.codFab||'').trim(), codForn:String(i.codForn||'').trim(), codInt:String(i.codInt||'').trim(), desc:String(i.desc||'').trim(), qtd:cpNum(i.qtd), custo:cpNum(i.custo), obs:String(i.obs||'').trim()}));
   if(!itens.length){ showToast('Inclua pelo menos um item com quantidade', true); return; }
   const f = cpFornPorId(fid);
   const t = cpTotais(itens);
@@ -2831,6 +2874,463 @@ function cpAplicarAcesso(){
     if(document.getElementById('page-compras').classList.contains('active')) goTab('nova', t1);
     if(temCompras()) cpCarregar(true);
   }
+}
+
+// ===================================================================
+// ===== MOTOR DE COMPRAS – MÉTODO 45 DIAS (Ferrauto) =====
+// Lê o "Extrato de Movimentação" do TGA (xlsx) e, opcionalmente, o
+// relatório de estoque (xlsx). Tudo roda no navegador.
+// ===================================================================
+const MT = {};
+MT.num = function(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number') return v;
+  let s=String(v).trim().replace(/R\$|\s/g,'');
+  if(!s) return null;
+  if(/^-?[\d.]+,\d+$/.test(s)) s=s.replace(/\./g,'').replace(',','.');
+  else if(/^-?\d+,\d+$/.test(s)) s=s.replace(',','.');
+  const n=parseFloat(s); return isNaN(n)?null:n;
+};
+MT.data = function(v){ // -> 'YYYY-MM-DD' ou null
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number' && v>20000 && v<80000){ const d=new Date(Math.round((v-25569)*86400000)); return d.toISOString().slice(0,10); }
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  const m=String(v).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m? m[3]+'-'+m[2]+'-'+m[1] : null;
+};
+MT.dias = function(a,b){ return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000); };
+MT.soma = function(iso,d){ const x=new Date(iso+'T12:00:00Z'); x.setUTCDate(x.getUTCDate()+d); return x.toISOString().slice(0,10); };
+MT.mediana = function(a){ if(!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+MT.normCod = function(c){ return String(c==null?'':c).trim().replace(/^0+(?=\d)/,'').toUpperCase(); };
+
+// ----- Leitura do extrato -----
+MT.lerExtrato = function(rows){
+  let ini=null, fim=null;
+  for(let i=0;i<Math.min(rows.length,12);i++){
+    const t=(rows[i]||[]).map(c=>c==null?'':String(c)).join(' ');
+    const m=t.match(/Per[ií]odo:\s*(\d{2}\/\d{2}\/\d{4})\s*at[ée]\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if(m){ ini=MT.data(m[1]); fim=MT.data(m[2]); break; }
+  }
+  const prods=[]; let p=null; let saldoCol=null;
+  const reHead=/^(\d{3,})\s*-\s*(.+)$/;
+  for(const r of rows){
+    if(!r||!r.length) continue;
+    const c0 = r[0]==null?'':r[0];
+    const s0 = typeof c0==='string'?c0.trim():c0;
+    // cabeçalho de produto
+    if(typeof s0==='string' && reHead.test(s0) && r.some(c=>typeof c==='string' && /Saldo Anterior/i.test(c))){
+      const m=s0.match(reHead);
+      const iSA=r.findIndex(c=>typeof c==='string' && /Saldo Anterior/i.test(c));
+      let saldoAnt=0;
+      for(let k=iSA+1;k<r.length;k++){ const v=MT.num(r[k]); if(v!==null){ saldoAnt=v; saldoCol=k; break; } }
+      const iEG=r.findIndex(c=>typeof c==='string' && /Estoque Geral/i.test(c));
+      let eg=null; if(iEG>=0) for(let k=iEG+1;k<r.length;k++){ const v=MT.num(r[k]); if(v!==null){ eg=v; break; } }
+      const un = r.find((c,k)=>k>iSA && typeof c==='string' && /^[A-Z]{1,3}$/.test(c.trim()));
+      p={codInt:m[1], cod:MT.normCod(m[1]), desc:m[2].trim(), un:un?un.trim():'', saldoAnt, estoqueGeral:eg, movs:[]};
+      prods.push(p); continue;
+    }
+    if(!p) continue;
+    const d=MT.data(s0);
+    if(!d) continue;
+    const ser = r[3]==null?'':String(r[3]).trim();
+    if(!ser || /^ser$/i.test(ser)) continue;
+    let saldo = saldoCol!==null ? MT.num(r[saldoCol]) : null;
+    if(saldo===null) continue;
+    const prev = p.movs.length ? p.movs[p.movs.length-1].saldo : p.saldoAnt;
+    const qtd = Math.round((saldo-prev)*1000)/1000;
+    let origem=''; for(let k=r.length-1;k>3;k--){ if(typeof r[k]==='string' && /^\s*[A-Z]?\d+\s*-\s*\S/.test(r[k])){ origem=r[k].trim(); break; } }
+    p.movs.push({data:d, doc:r[1]==null?'':String(r[1]).trim(), ser, preco:MT.num(r[4])||0, custo:MT.num(r[5]), saldo, qtd, origem});
+  }
+  prods.forEach(x=>{ x.movs.sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0); });
+  if(!ini||!fim){
+    const ds=[]; prods.forEach(x=>x.movs.forEach(m=>ds.push(m.data))); ds.sort();
+    ini=ini||ds[0]; fim=fim||ds[ds.length-1];
+  }
+  return {ini, fim, prods};
+};
+
+// ----- Leitura do relatório de estoque (código interno → ref. fabricante, fornecedor, custo, qtd) -----
+MT.lerEstoque = function(rows){
+  const mapa={};
+  for(const r of rows){
+    if(!r) continue;
+    // procura a primeira célula numérica inteira como código interno
+    let iCod=-1;
+    for(let k=0;k<Math.min(r.length,3);k++){ const v=r[k]; if(v!==null && v!=='' && /^\d{1,7}$/.test(String(v).trim())){ iCod=k; break; } }
+    if(iCod<0) continue;
+    const desc=r[iCod+1], forn=r[iCod+2], un=r[iCod+3], ref=r[iCod+4];
+    if(typeof desc!=='string') continue;
+    mapa[MT.normCod(r[iCod])] = {desc:desc.trim(), forn:typeof forn==='string'?forn.trim():'', un:un||'', ref:ref==null?'':String(ref).trim(), custo:MT.num(r[iCod+5]), qtd:MT.num(r[iCod+6])};
+  }
+  return mapa;
+};
+
+MT.ehCompra = function(m){ return m.qtd>0 && (m.ser==='EC' || /^\d+$/.test(m.ser)) && /^[FC]\d/.test(m.origem); };
+MT.ehInterna = function(origem){ return /FERRAUTO/i.test(origem||''); };
+MT.fornCodigo = function(origem){ const m=String(origem||'').match(/^([A-Z]?\d+)\s*-\s*(.*)$/); return m?{cod:m[1], nome:m[2].trim()}:{cod:'',nome:origem||''}; };
+
+// ----- Cálculo principal -----
+// opts: {cob, prazoPadrao, caro, barato, prazoForn:{COD:dias}, transito:{cod:qtd}, hoje}
+MT.calcular = function(ext, estoque, opts){
+  opts = Object.assign({cob:45, prazoPadrao:10, caro:300, barato:30, prazoForn:{}, transito:{}}, opts||{});
+  const fim = ext.fim, ini = ext.ini;
+  const diasPer = Math.max(1, MT.dias(ini,fim)+1);
+  const j120 = MT.soma(fim,-119), j60=MT.soma(fim,-59), j30=MT.soma(fim,-29), j180=MT.soma(fim,-179);
+  const itens = [];
+  for(const p of ext.prods){
+    const est = estoque && estoque[p.cod] || null;
+    const vendas = p.movs.filter(m=>m.ser==='EV' && m.qtd<0).map(m=>({data:m.data, doc:m.doc, q:-m.qtd, preco:m.preco, origem:m.origem}));
+    const compras = p.movs.filter(MT.ehCompra).map(m=>({data:m.data, doc:m.doc, ser:m.ser, q:m.qtd, preco:m.preco, origem:m.origem, interna:MT.ehInterna(m.origem)}));
+    // pico: venda > 3x média das demais (só limita se isolada)
+    const qs = vendas.map(v=>v.q);
+    let picos=[];
+    if(vendas.length>=3){
+      vendas.forEach((v,i)=>{
+        const outras = qs.filter((_,k)=>k!==i), med = outras.reduce((a,b)=>a+b,0)/outras.length;
+        if(med>0 && v.q>3*med) picos.push({i, med});
+      });
+    }
+    const isolado = picos.length===1;
+    const qProj = vendas.map((v,i)=>{ const pk=picos.find(x=>x.i===i); return (pk && isolado)? Math.min(v.q, 2*pk.med) : v.q; });
+    const somaQ = (f)=>vendas.reduce((s,v,i)=>s+(f(v)?v.q:0),0);
+    const somaQP = (f)=>vendas.reduce((s,v,i)=>s+(f(v)?qProj[i]:0),0);
+    const nDist = (f)=>new Set(vendas.filter(f).map(v=>v.doc+'|'+v.data)).size;
+    const uFull=somaQ(()=>true), u120=somaQ(v=>v.data>=j120), u60=somaQ(v=>v.data>=j60), u30=somaQ(v=>v.data>=j30);
+    const nFull=nDist(()=>true), n120=nDist(v=>v.data>=j120);
+    const ultVenda = vendas.length? vendas[vendas.length-1].data : null;
+    const valorVendido = vendas.reduce((s,v)=>s+v.q*v.preco,0);
+    // dias zerado na janela de 120 dias
+    let saldoIni = p.saldoAnt; for(const m of p.movs){ if(m.data<j120) saldoIni=m.saldo; else break; }
+    let zero=0, s=saldoIni, k=0; const mv=p.movs.filter(m=>m.data>=j120);
+    for(let d=0; d<120; d++){
+      const dia=MT.soma(j120,d);
+      while(k<mv.length && mv[k].data<=dia){ s=mv[k].saldo; k++; }
+      if(s<=0) zero++;
+    }
+    // estoque atual
+    let estoqueAtual = p.estoqueGeral!==null ? p.estoqueGeral : (p.movs.length? p.movs[p.movs.length-1].saldo : p.saldoAnt);
+    if(est && est.qtd!==null && p.estoqueGeral===null) estoqueAtual = est.qtd;
+    estoqueAtual = Math.max(0, estoqueAtual||0);
+    // fornecedor e custo
+    const compExt = compras.filter(c=>!c.interna);
+    const ultComp = compExt.length? compExt[compExt.length-1] : null;
+    const fornUlt = ultComp? MT.fornCodigo(ultComp.origem) : {cod:'', nome: est&&est.forn ? est.forn : ''};
+    let custo = ultComp? ultComp.preco : null;
+    if(!custo){ for(let i=p.movs.length-1;i>=0;i--){ if(p.movs[i].custo){ custo=p.movs[i].custo; break; } } }
+    if(!custo && est) custo = est.custo;
+    custo = custo||0;
+    // preços por fornecedor (cotação histórica)
+    const porForn={};
+    compExt.filter(c=>MT.dias(c.data,fim)<=365).forEach(c=>{ const f=MT.fornCodigo(c.origem); porForn[f.cod||f.nome]={cod:f.cod, nome:f.nome, preco:c.preco, data:c.data, q:c.q}; });
+    // aumento de custo
+    let aumento=null;
+    const compAno=compExt.filter(c=>MT.dias(c.data,fim)<=365);
+    if(compAno.length>=2){ const a=compAno[compAno.length-2].preco, b=compAno[compAno.length-1].preco; if(a>0 && b>a*1.10) aumento={de:a, para:b, pct:(b/a-1)*100}; }
+    // demanda
+    let u120p = somaQP(v=>v.data>=j120), uFullp = somaQP(()=>true);
+    let ruptAjuste=false;
+    if(zero>0 && zero<120 && u120p>0){ const adj=Math.min(u120p*120/(120-zero), 1.5*u120p); if(adj>u120p){ u120p=adj; ruptAjuste=true; } }
+    const dia = 0.4*(uFullp/diasPer) + 0.6*(u120p/Math.min(120,diasPer));
+    const prazo = (fornUlt.cod && opts.prazoForn[fornUlt.cod]) || opts.prazoPadrao;
+    const seg = n120>=6 ? 1 : 0;
+    const transito = opts.transito[p.cod] || 0;
+    const necessidade = dia*(opts.cob+prazo) + seg;
+    const falta = necessidade - estoqueAtual - transito;
+    // regras de entrada
+    let pedir=0, motivo='', sob=false;
+    const caro = custo>=opts.caro, barato = custo>0 && custo<=opts.barato;
+    const ruptRelevante = zero>=36 && n120>=1;
+    if(estoqueAtual>0){
+      if(falta>=0.5){ pedir=Math.ceil(falta); motivo='Necessidade'; }
+    } else {
+      const crit = n120>=2 || nFull>=3 || dia*(opts.cob+prazo)>=1 || (barato && n120>=1);
+      if(crit && falta>0){ pedir=Math.max(1,Math.ceil(falta)); motivo='Zerado com venda'; }
+    }
+    if(pedir>0 && caro && !(n120>=2 || ruptRelevante)){ sob=true; motivo='Item caro com pouca venda'; }
+    // XYZ: meses com venda nos últimos 12 meses
+    const meses={}; vendas.forEach(v=>{ if(MT.dias(v.data,fim)<365){ const m=v.data.slice(0,7); meses[m]=(meses[m]||0)+v.q; } });
+    const nMes = Math.min(12, Math.max(1, Math.round(diasPer/30.4)));
+    const arr=[]; for(let i=0;i<nMes;i++){ const d=new Date(fim+'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth()-i); arr.push(meses[d.toISOString().slice(0,7)]||0); }
+    const media=arr.reduce((a,b)=>a+b,0)/arr.length;
+    const dp=Math.sqrt(arr.reduce((a,b)=>a+(b-media)*(b-media),0)/arr.length);
+    const cv = media>0? dp/media : 99;
+    const xyz = media===0?'Z': cv<=0.5?'X': cv<=1?'Y':'Z';
+    itens.push({
+      cod:p.cod, codInt:p.codInt, ref: est&&est.ref? est.ref : '', desc:p.desc, un:p.un,
+      estoque:estoqueAtual, transito, custo, valorEstoque: estoqueAtual*custo,
+      uFull, nFull, u120, n120, u60, u30, ultVenda, valorVendido,
+      zero120:zero, ruptAjuste, picos:picos.length, picoIsolado:isolado && picos.length===1,
+      demandaDia:dia, prazo, seg, necessidade, falta,
+      pedir: sob?0:pedir, sugeridoSob: sob?pedir:0, motivo, sob,
+      fornCod:fornUlt.cod, fornNome:fornUlt.nome,
+      ultCompra: ultComp? {data:ultComp.data, q:ultComp.q, preco:ultComp.preco} : null,
+      compras: compExt, porForn, aumento, xyz, abc:'C', caro
+    });
+  }
+  // ABC por valor vendido
+  const tot = itens.reduce((s,i)=>s+i.valorVendido,0);
+  let acum=0;
+  [...itens].sort((a,b)=>b.valorVendido-a.valorVendido).forEach(i=>{
+    if(i.valorVendido<=0){ i.abc='C'; return; }
+    acum+=i.valorVendido; const f=acum/tot;
+    i.abc = f<=0.80?'A': f<=0.95?'B':'C';
+  });
+  // alertas
+  const alertas=[];
+  itens.forEach(i=>{
+    const nome=(i.ref||i.cod)+' – '+i.desc;
+    if(i.estoque<=0 && i.n120>=1) alertas.push({tipo:'RUPTURA', item:i, txt:'Zerado com '+i.n120+' venda(s) nos últimos 120 dias'});
+    else if(i.zero120>=36 && i.n120>=1) alertas.push({tipo:'RUPTURA', item:i, txt:'Ficou zerado '+i.zero120+' dos últimos 120 dias'});
+    if(i.ruptAjuste) alertas.push({tipo:'DEMANDA AJUSTADA', item:i, txt:'Demanda possivelmente subestimada por ruptura ('+i.zero120+' dias zerado)'});
+    if(i.picos) alertas.push({tipo:'PICO', item:i, txt: i.picoIsolado?'Venda isolada muito acima da média (limitada a 2× na projeção)':'Vendas grandes repetidas (mantidas)'});
+    if(i.estoque>0 && (!i.ultVenda || i.ultVenda<j180) && i.valorEstoque>=100) alertas.push({tipo:'ENCALHE', item:i, txt:'Sem venda há mais de 180 dias · '+i.estoque+' un. parado(s)'});
+    if(i.ultCompra && i.estoque<=0 && MT.dias(i.ultCompra.data, fim)<=60 && i.u60>=i.ultCompra.q) alertas.push({tipo:'VENDEU E ZEROU', item:i, txt:'Comprou '+i.ultCompra.q+' em '+i.ultCompra.data.split('-').reverse().join('/')+' e já zerou'});
+    if(i.aumento) alertas.push({tipo:'AUMENTO DE CUSTO', item:i, txt:'Custo subiu '+i.aumento.pct.toFixed(0)+'% na última compra'});
+    if(i.sob) alertas.push({tipo:'SOB ENCOMENDA', item:i, txt:'Item caro com pouca venda – comprar só com pedido do cliente'});
+    if(i.transito>0) alertas.push({tipo:'EM TRÂNSITO', item:i, txt:i.transito+' un. já em pedido aberto (descontado)'});
+  });
+  return {ini, fim, diasPer, itens, alertas, opts};
+};
+
+
+
+// ===================================================================
+// ===== COMPRAS: GERAR PEDIDO, ALERTAS, COTAÇÃO E ANÁLISES =====
+// ===================================================================
+let cpRes = null;          // resultado do último cálculo
+let cpResForn = 'todos';   // filtro de fornecedor
+let cpResBusca = '';
+let cpXlsxPromise = null;
+
+function cpCarregarXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(cpXlsxPromise) return cpXlsxPromise;
+  cpXlsxPromise = new Promise((ok,err)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>ok(); s.onerror=()=>{ cpXlsxPromise=null; err(new Error('Não consegui carregar o leitor de planilhas. Verifique a internet.')); };
+    document.head.appendChild(s);
+  });
+  return cpXlsxPromise;
+}
+function cpLerArquivo(file){
+  return new Promise((ok,err)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(fr.result),{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        ok(XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}));
+      }catch(e){ err(e); }
+    };
+    fr.onerror=()=>err(fr.error);
+    fr.readAsArrayBuffer(file);
+  });
+}
+function cpPrazoFornMapa(){
+  const m={};
+  cpForns.forEach(f=>{
+    if(!f.codTGA) return;
+    const pr=cpPrazoReal(f.id);
+    const d = pr.med!==null && pr.n>=3 ? pr.med : (Number(f.prazo)||null);
+    if(d) m[String(f.codTGA).toUpperCase()] = Math.round(d);
+  });
+  return m;
+}
+function cpTransitoMapa(){
+  const m={};
+  cpPedidos.filter(p=>p.status==='enviado'||p.status==='transito').forEach(p=>{
+    cpItens(p).forEach(i=>{ const c=MT.normCod(i.codInt||''); if(c) m[c]=(m[c]||0)+cpNum(i.qtd); });
+  });
+  return m;
+}
+
+async function cpCalcular(){
+  const fE=document.getElementById('cpArqExt').files[0];
+  const fS=document.getElementById('cpArqEst').files[0];
+  if(!fE){ showToast('Escolha o arquivo do extrato do TGA', true); return; }
+  const btn=document.getElementById('cpBtnCalc'); btn.disabled=true; btn.textContent='Calculando...';
+  try{
+    if(!cpCarregado) await cpCarregar(true);
+    await cpCarregarXLSX();
+    const ext = MT.lerExtrato(await cpLerArquivo(fE));
+    if(!ext.prods.length) throw new Error('Não encontrei produtos no arquivo. Use o Extrato de Movimentação exportado em Excel.');
+    const est = fS ? MT.lerEstoque(await cpLerArquivo(fS)) : null;
+    const opts = {
+      cob: Number(document.getElementById('cpParCob').value)||45,
+      prazoPadrao: Number(document.getElementById('cpParPrazo').value)||10,
+      caro: Number(document.getElementById('cpParCaro').value)||300,
+      barato: Number(document.getElementById('cpParBarato').value)||30,
+      prazoForn: cpPrazoFornMapa(), transito: cpTransitoMapa()
+    };
+    cpRes = MT.calcular(ext, est, opts);
+    cpRes.arquivo = fE.name; cpRes.comEstoque = !!est;
+    cpRes.itens.forEach(i=>{ i.qPedir=i.pedir; i.fornEsc=i.fornCod||i.fornNome||'SEM FORNECEDOR'; i.fornEscNome=i.fornNome||'Sem fornecedor'; i.custoEsc=i.custo; });
+    cpResForn='todos'; cpResBusca='';
+    cpRenderResultado(); cpRenderAlertas(); cpRenderAnalises();
+    const n=cpRes.itens.filter(i=>i.qPedir>0).length;
+    showToast(n+' itens para pedir · '+cpRes.alertas.length+' alertas');
+  }catch(e){ console.error(e); showToast('Erro: '+e.message, true); }
+  btn.disabled=false; btn.textContent='Calcular pedido';
+}
+
+function cpGruposForn(){
+  const g={};
+  cpRes.itens.filter(i=>i.qPedir>0).forEach(i=>{
+    const k=i.fornEsc; if(!g[k]) g[k]={k, cod:/^[FC]\d/.test(k)?k:'', nome:i.fornEscNome, itens:[]};
+    g[k].itens.push(i);
+  });
+  return Object.values(g).map(x=>{ x.un=x.itens.reduce((s,i)=>s+i.qPedir,0); x.val=x.itens.reduce((s,i)=>s+i.qPedir*i.custoEsc,0); return x; }).sort((a,b)=>b.val-a.val);
+}
+function cpFornDoCad(cod,nome){
+  return cpForns.find(f=>cod && String(f.codTGA||'').toUpperCase()===String(cod).toUpperCase()) || cpForns.find(f=>nome && String(f.nome||'').toUpperCase()===String(nome).toUpperCase());
+}
+function cpBR(iso){ return iso? iso.split('-').reverse().join('/') : '—'; }
+function cpN(n,d){ return (Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:d==null?1:d}); }
+
+function cpRenderResultado(){
+  const el=document.getElementById('cpGerRes');
+  if(!cpRes){ el.innerHTML=''; return; }
+  const grupos=cpGruposForn();
+  const tot={cod:0,un:0,val:0}; grupos.forEach(g=>{ tot.cod+=g.itens.length; tot.un+=g.un; tot.val+=g.val; });
+  let h=`<div class="msec" style="border:1px solid var(--ac)"><div style="font-size:14px;color:var(--ac);font-weight:600">Pedido calculado com o estoque geral das filiais 1 e 2.</div>
+    <div class="cp-hint">Período do extrato: ${cpBR(cpRes.ini)} a ${cpBR(cpRes.fim)} (${cpRes.diasPer} dias) · ${cpRes.itens.length} produtos analisados · cobertura ${cpRes.opts.cob} dias${cpRes.comEstoque?'':' · sem relatório de estoque (códigos de fabricante podem faltar)'}</div></div>
+    <div class="stats"><div class="stat"><div class="stat-v">${tot.cod}</div><div class="stat-l">Códigos</div></div><div class="stat"><div class="stat-v">${cpN(tot.un,0)}</div><div class="stat-l">Unidades</div></div>
+    <div class="stat"><div class="stat-v" style="font-size:22px">${cpMoeda(tot.val)}</div><div class="stat-l">Valor estimado</div></div><div class="stat"><div class="stat-v">${grupos.length}</div><div class="stat-l">Fornecedores</div></div></div>`;
+  h+=`<div class="card-title">Por fornecedor</div>`;
+  h+=grupos.map(g=>{
+    const f=cpFornDoCad(g.cod,g.nome);
+    const info=[f&&f.pedMin?'Mínimo: '+f.pedMin:'', f&&(f.frete||f.freteObs)?'Frete: '+[f.frete,f.freteObs].filter(Boolean).join(' · '):'Verificar se o frete é por conta do fornecedor'].filter(Boolean).join(' | ');
+    return `<div class="os-card" style="cursor:default"><div class="os-card-h"><div><div class="cp-forn">${cpEsc(g.nome)}</div><div class="os-num">${cpEsc(g.cod||'sem código')} · ${g.itens.length} códigos · ${cpN(g.un,0)} un.</div></div><span class="os-valor">${cpMoeda(g.val)}</span></div>
+      <div class="os-card-b"><div class="cp-hint">${cpEsc(info)}</div>
+      <div class="cp-acts"><button class="cp-mini" onclick="cpResForn='${cpEsc(g.k)}';cpRenderTabela()">Ver itens</button><button class="cp-mini prim" onclick="cpCriarDoCalculo('${cpEsc(g.k)}')">Criar pedido</button></div></div></div>`;
+  }).join('') || '<div class="empty"><p>Nenhum item precisa ser pedido agora.</p></div>';
+  h+=`<div class="card-title" style="margin-top:14px">Itens do pedido</div>
+    <div class="filtros" id="cpResFiltros"></div>
+    <div class="busca"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="cpResBusca" placeholder="Buscar código ou descrição..." oninput="cpResBusca=this.value;cpRenderTabela()"></div>
+    <div id="cpResTabela"></div>`;
+  const sob=cpRes.itens.filter(i=>i.sob);
+  if(sob.length){
+    h+=`<div class="card-title" style="margin-top:14px">Sob encomenda</div><div class="cp-hint" style="margin-bottom:6px">Itens caros com pouca venda. Comprar só com pedido do cliente.</div><div class="msec">`+
+      sob.map(i=>`<div class="cp-kv"><span>${cpEsc(i.ref||i.cod)} · ${cpEsc(i.desc)}</span><span>${i.n120} venda(s) 120d · ${cpMoeda(i.custo)}</span></div>`).join('')+`</div>`;
+  }
+  el.innerHTML=h;
+  cpRenderTabela();
+}
+
+function cpRenderTabela(){
+  if(!cpRes) return;
+  const grupos=cpGruposForn();
+  const fb=document.getElementById('cpResFiltros');
+  if(fb) fb.innerHTML=`<div class="fbtn ${cpResForn==='todos'?'active':''}" onclick="cpResForn='todos';cpRenderTabela()">Todos</div>`+
+    grupos.map(g=>`<div class="fbtn ${cpResForn===g.k?'active':''}" onclick="cpResForn='${cpEsc(g.k)}';cpRenderTabela()">${cpEsc(g.nome.split(' ').slice(0,2).join(' '))}</div>`).join('')+
+    `<div class="fbtn ${cpResForn==='__zero'?'active':''}" onclick="cpResForn='__zero';cpRenderTabela()">Fora do pedido</div>`;
+  const q=cpResBusca.toLowerCase().trim();
+  let lista = cpResForn==='__zero' ? cpRes.itens.filter(i=>i.qPedir<=0 && !i.sob && i.uFull>0) : cpRes.itens.filter(i=>i.qPedir>0 && (cpResForn==='todos'||i.fornEsc===cpResForn));
+  if(q) lista=lista.filter(i=>(i.ref+' '+i.cod+' '+i.desc).toLowerCase().includes(q));
+  lista.sort((a,b)=>String(a.ref||a.cod).localeCompare(String(b.ref||b.cod),'pt-BR',{numeric:true}));
+  const el=document.getElementById('cpResTabela'); if(!el) return;
+  if(!lista.length){ el.innerHTML='<div class="empty"><p>Nada aqui.</p></div>'; return; }
+  el.innerHTML = lista.slice(0,400).map(i=>{
+    const idx=cpRes.itens.indexOf(i);
+    const opcoes=Object.values(i.porForn).sort((a,b)=>a.preco-b.preco);
+    const maisBarato = opcoes.length>1 && opcoes[0].cod!==i.fornEsc ? opcoes[0] : null;
+    const sel = opcoes.length>1 ? `<select class="cp-selforn" onchange="cpTrocarForn(${idx},this.value)">${opcoes.map(o=>`<option value="${cpEsc(o.cod||o.nome)}" ${ (o.cod||o.nome)===i.fornEsc?'selected':''}>${cpEsc(o.nome.slice(0,22))} · ${cpMoeda(o.preco)} (${cpBR(o.data)})</option>`).join('')}</select>` : `<span>${cpEsc(i.fornEscNome)}</span>`;
+    const tags=[i.abc+i.xyz, i.motivo, i.ruptAjuste?'ruptura':'', i.transito?'trânsito '+i.transito:'', i.aumento?'custo +'+i.aumento.pct.toFixed(0)+'%':''].filter(Boolean).join(' · ');
+    return `<div class="cp-item">
+      <div style="display:flex;justify-content:space-between;gap:8px"><div style="min-width:0"><div style="font-weight:600;color:var(--tx)">${cpEsc(i.ref||i.cod)} <span style="color:var(--tx3);font-weight:400;font-size:12px">· int. ${cpEsc(i.codInt)}</span></div><div style="font-size:13px;color:var(--tx2)">${cpEsc(i.desc)}</div></div>
+      <div style="text-align:right;flex-shrink:0"><label>Pedir</label><input inputmode="numeric" style="width:64px;text-align:center;font-weight:700;color:var(--ac)" value="${i.qPedir}" onchange="cpRes.itens[${idx}].qPedir=Math.max(0,Math.round(cpNum(this.value)));cpRenderResultado()"></div></div>
+      <div class="cp-mini-g"><span>Estoque <b>${cpN(i.estoque)}</b></span><span>Vendas 120d <b>${cpN(i.u120)}</b> (${i.n120}×)</span><span>30d <b>${cpN(i.u30)}</b></span><span>Período <b>${cpN(i.uFull)}</b></span><span>Últ. venda <b>${cpBR(i.ultVenda)}</b></span><span>Custo <b>${cpMoeda(i.custoEsc)}</b></span></div>
+      <div style="font-size:12px;color:var(--tx3);margin-top:4px">${cpEsc(tags)}</div>
+      <div style="font-size:13px;margin-top:6px">Fornecedor: ${sel}</div>
+      ${maisBarato?`<div style="font-size:12px;color:var(--grn);margin-top:3px">Mais barato nos últimos 12 meses: ${cpEsc(maisBarato.nome)} ${cpMoeda(maisBarato.preco)}</div>`:''}
+    </div>`;
+  }).join('') + (lista.length>400?`<div class="cp-hint">Mostrando 400 de ${lista.length}. Use a busca ou o filtro.</div>`:'');
+}
+function cpTrocarForn(idx, k){
+  const i=cpRes.itens[idx]; const o=Object.values(i.porForn).find(x=>(x.cod||x.nome)===k); if(!o) return;
+  i.fornEsc=k; i.fornEscNome=o.nome; i.custoEsc=o.preco;
+  cpRenderResultado();
+}
+async function cpCriarDoCalculo(k){
+  const g=cpGruposForn().find(x=>x.k===k); if(!g) return;
+  try{
+    let f=cpFornDoCad(g.cod,g.nome);
+    if(!f){ f=await cpFbAdd(CP_COL_FORN,{nome:g.nome, codTGA:g.cod, prazo:cpRes.opts.prazoPadrao, pedMin:'', frete:'', freteObs:'', contato:'', whats:'', obs:'Cadastrado pelo cálculo do pedido', atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()}); cpForns.push(f); }
+    const itens=g.itens.map(i=>({codFab:i.ref||i.cod, codForn:'', codInt:i.codInt, desc:i.desc, qtd:i.qPedir, custo:Math.round(i.custoEsc*100)/100, obs:i.motivo}))
+      .sort((a,b)=>String(a.codFab).localeCompare(String(b.codFab),'pt-BR',{numeric:true}));
+    const t=cpTotais(itens);
+    const prazo = cpPrazoFornMapa()[String(f.codTGA||'').toUpperCase()] || Number(f.prazo) || cpRes.opts.prazoPadrao;
+    const maxN = cpPedidos.reduce((m,p)=>Math.max(m, Number(p.numero)||0), 0);
+    const dados={fornId:f.id, fornNome:f.nome, fornCod:f.codTGA||'', dataPedido:cpHojeISO(), previsao:cpSomaISO(cpHojeISO(), prazo), cond:'', obs:'Gerado pelo Método 45 dias ('+cpBR(cpRes.ini)+' a '+cpBR(cpRes.fim)+')',
+      itensJSON:JSON.stringify(itens), totalItens:t.cod, totalUn:t.q, totalValor:Math.round(t.v*100)/100, numero:String(maxN+1), status:'rascunho', criadoPor:usuarioLogado, criadoISO:new Date().toISOString(), atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()};
+    const novo=await cpFbAdd(CP_COL_PED, dados); cpPedidos.unshift(novo);
+    cpRenderPedidos(); cpRenderForns();
+    showToast('Pedido #'+dados.numero+' criado para '+f.nome);
+    cpSub('pedidos'); cpAbrirDetalhe(novo.id);
+  }catch(e){ showToast('Erro: '+e.message, true); }
+}
+
+// ----- Alertas -----
+const CP_ALERTA_ORDEM = ['PEDIDO ATRASADO','RUPTURA','VENDEU E ZEROU','DEMANDA AJUSTADA','AUMENTO DE CUSTO','PICO','SOB ENCOMENDA','EM TRÂNSITO','ENCALHE','CHEGADA COM PROBLEMA'];
+function cpRenderAlertas(){
+  const el=document.getElementById('cpAlertasBody'); if(!el) return;
+  const hoje=cpHojeISO();
+  const lista=[];
+  cpPedidos.filter(p=>['enviado','transito'].includes(p.status) && p.previsao && p.previsao<hoje).forEach(p=>{
+    lista.push({tipo:'PEDIDO ATRASADO', titulo:(p.fornNome||'')+' · pedido #'+p.numero, txt:'Previsto para '+cpBR(p.previsao)+' ('+cpDias(p.previsao,hoje)+' dias de atraso)', pid:p.id});
+  });
+  cpPedidos.filter(p=>p.status==='recebido' && p.conferencia && p.conferencia!=='ok' && cpDias(p.dataEntradaNF||hoje,hoje)<=30).forEach(p=>{
+    lista.push({tipo:'CHEGADA COM PROBLEMA', titulo:(p.fornNome||'')+' · pedido #'+p.numero, txt:p.obsRec||'', pid:p.id});
+  });
+  if(cpRes) cpRes.alertas.forEach(a=>lista.push({tipo:a.tipo, titulo:(a.item.ref||a.item.cod)+' – '+a.item.desc, txt:a.txt+(a.tipo==='ENCALHE'?' · '+cpMoeda(a.item.valorEstoque):'')}));
+  if(!lista.length){ el.innerHTML='<div class="empty"><p>'+(cpRes?'Nenhum alerta.':'Calcule um pedido na aba Gerar pedido para ver os alertas de estoque. Atrasos de fornecedor aparecem aqui sozinhos.')+'</p></div>'; return; }
+  const grp={}; lista.forEach(a=>{ (grp[a.tipo]=grp[a.tipo]||[]).push(a); });
+  el.innerHTML = (cpRes?'':'<div class="cp-hint" style="margin-bottom:10px">Para ver ruptura, encalhe e custo, calcule um pedido na aba Gerar pedido.</div>') +
+    CP_ALERTA_ORDEM.filter(t=>grp[t]).map(t=>{
+      const itens=grp[t];
+      const extra = t==='ENCALHE' ? ' · '+cpMoeda(itens.reduce((s,a)=>s+(cpRes? (cpRes.alertas.find(x=>x.tipo===t && (x.item.ref||x.item.cod)+' – '+x.item.desc===a.titulo)||{item:{valorEstoque:0}}).item.valorEstoque:0),0))+' parado' : '';
+      return `<details class="cp-alerta" ${['PEDIDO ATRASADO','RUPTURA','VENDEU E ZEROU','CHEGADA COM PROBLEMA'].includes(t)?'open':''}><summary><span class="cp-al-t">${t}</span><span class="cp-al-n">${itens.length}${extra}</span></summary>`+
+        itens.slice(0,300).map(a=>`<div class="cp-al-i" ${a.pid?`onclick="cpAbrirDetalhe('${a.pid}')" style="cursor:pointer"`:''}><div>${cpEsc(a.titulo)}</div><div class="cp-hint" style="margin:0">${cpEsc(a.txt)}</div></div>`).join('')+
+        (itens.length>300?`<div class="cp-hint">+${itens.length-300} itens</div>`:'')+`</details>`;
+    }).join('');
+}
+
+// ----- Análises -----
+function cpRenderAnalises(){
+  const el=document.getElementById('cpAnaBody'); if(!el) return;
+  let h='';
+  // prazo real por fornecedor (sempre disponível)
+  const prs=cpForns.map(f=>({f, pr:cpPrazoReal(f.id)})).filter(x=>x.pr.n>0);
+  if(cpRes){
+    const it=cpRes.itens;
+    const m={}; ['A','B','C'].forEach(a=>['X','Y','Z'].forEach(x=>m[a+x]={n:0,v:0,est:0}));
+    it.forEach(i=>{ const k=i.abc+i.xyz; m[k].n++; m[k].v+=i.valorVendido; m[k].est+=i.valorEstoque; });
+    const totV=it.reduce((s,i)=>s+i.valorVendido,0), totE=it.reduce((s,i)=>s+i.valorEstoque,0);
+    h+=`<div class="card-title">Curva ABC × regularidade</div><div class="cp-hint" style="margin-bottom:8px">A = maior valor vendido (80%), B = próximos 15%, C = resto. X = vende todo mês, Y = irregular, Z = esporádico.</div>
+      <div style="overflow-x:auto"><table class="cp-tbl"><thead><tr><th></th><th style="text-align:right">X · regular</th><th style="text-align:right">Y · irregular</th><th style="text-align:right">Z · esporádico</th></tr></thead><tbody>`+
+      ['A','B','C'].map(a=>`<tr><th>${a}</th>`+['X','Y','Z'].map(x=>{const c=m[a+x];return `<td class="n">${c.n} itens<br><span style="color:var(--tx3)">${cpMoeda(c.v)}</span></td>`;}).join('')+`</tr>`).join('')+
+      `</tbody></table></div><div class="cp-tot"><span>Vendido no período</span><b>${cpMoeda(totV)}</b></div><div class="cp-tot"><span>Estoque a custo</span><b>${cpMoeda(totE)}</b></div>`;
+    const top=[...it].sort((a,b)=>b.valorVendido-a.valorVendido).slice(0,15);
+    h+=`<div class="card-title" style="margin-top:14px">Mais vendidos (valor)</div><div class="msec">`+top.map(i=>`<div class="cp-kv"><span>${cpEsc(i.ref||i.cod)} · ${cpEsc(i.desc.slice(0,38))}</span><span>${cpMoeda(i.valorVendido)} · ${cpN(i.uFull)} un.</span></div>`).join('')+`</div>`;
+    const par=[...it].filter(i=>i.estoque>0 && (!i.ultVenda || cpDias(i.ultVenda,cpRes.fim)>180)).sort((a,b)=>b.valorEstoque-a.valorEstoque);
+    h+=`<div class="card-title" style="margin-top:14px">Estoque parado (+180 dias sem venda)</div><div class="cp-tot"><span>${par.length} itens</span><b>${cpMoeda(par.reduce((s,i)=>s+i.valorEstoque,0))}</b></div><div class="msec">`+
+      par.slice(0,15).map(i=>`<div class="cp-kv"><span>${cpEsc(i.ref||i.cod)} · ${cpEsc(i.desc.slice(0,38))}</span><span>${cpN(i.estoque)} un. · ${cpMoeda(i.valorEstoque)}</span></div>`).join('')+`</div>`;
+    // compras por fornecedor no período
+    const cf={}; it.forEach(i=>i.compras.forEach(c=>{ const f=MT.fornCodigo(c.origem); const k=f.cod||f.nome; cf[k]=cf[k]||{nome:f.nome, v:0, notas:new Set()}; cf[k].v+=c.q*c.preco; cf[k].notas.add(c.doc+c.data); }));
+    const cfl=Object.values(cf).sort((a,b)=>b.v-a.v);
+    h+=`<div class="card-title" style="margin-top:14px">Compras no período por fornecedor</div><div class="msec">`+cfl.slice(0,20).map(x=>`<div class="cp-kv"><span>${cpEsc(x.nome)}</span><span>${cpMoeda(x.v)} · ${x.notas.size} notas</span></div>`).join('')+`</div>`;
+    // cotação: itens com mais de um fornecedor
+    const multi=it.filter(i=>Object.keys(i.porForn).length>1).map(i=>{ const o=Object.values(i.porForn).sort((a,b)=>a.preco-b.preco); return {i,o,dif:o[o.length-1].preco-o[0].preco}; }).sort((a,b)=>b.dif-a.dif);
+    h+=`<div class="card-title" style="margin-top:14px">Comparativo de fornecedores</div><div class="cp-hint" style="margin-bottom:8px">Último preço pago a cada fornecedor nos últimos 12 meses, do mais barato para o mais caro.</div>`+
+      (multi.length? multi.slice(0,40).map(x=>`<div class="cp-item"><div style="font-weight:600">${cpEsc(x.i.ref||x.i.cod)} · <span style="font-weight:400;color:var(--tx2)">${cpEsc(x.i.desc)}</span></div>`+
+        x.o.map((o,k)=>`<div class="cp-kv"><span style="${k===0?'color:var(--grn)':''}">${cpEsc(o.nome)} (${cpBR(o.data)})</span><span style="${k===0?'color:var(--grn)':''}">${cpMoeda(o.preco)}</span></div>`).join('')+`</div>`).join('') : '<div class="cp-hint">Nenhum item comprado de mais de um fornecedor no período.</div>');
+  } else {
+    h+='<div class="empty"><p>Calcule um pedido na aba Gerar pedido para ver curva ABC, estoque parado e comparativo de preços.</p></div>';
+  }
+  h+=`<div class="card-title" style="margin-top:14px">Prazo real dos fornecedores</div>`+
+    (prs.length? `<div class="msec">`+prs.map(x=>`<div class="cp-kv"><span>${cpEsc(x.f.nome)}</span><span>${Math.round(x.pr.med)} dias · ${x.pr.n} chegada(s)${x.f.prazo?' · informado '+x.f.prazo:''}</span></div>`).join('')+`</div>` : '<div class="cp-hint">Aparece quando houver chegadas registradas nos pedidos.</div>');
+  el.innerHTML=h;
 }
 
 // ===== INIT =====
