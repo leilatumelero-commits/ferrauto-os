@@ -566,8 +566,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
     </div>
     <div class="filtros" id="cpFiltros">
       <div class="fbtn active" data-f="abertos" onclick="cpSetFiltro('abertos',this)">Em aberto</div>
-      <div class="fbtn" data-f="rascunho" onclick="cpSetFiltro('rascunho',this)">Rascunho</div>
-      <div class="fbtn" data-f="enviado" onclick="cpSetFiltro('enviado',this)">Enviado</div>
+      <div class="fbtn" data-f="rascunho" onclick="cpSetFiltro('rascunho',this)">Simulado</div>
+      <div class="fbtn" data-f="enviado" onclick="cpSetFiltro('enviado',this)">Liberado</div>
       <div class="fbtn" data-f="transito" onclick="cpSetFiltro('transito',this)">Em trânsito</div>
       <div class="fbtn" data-f="recebido" onclick="cpSetFiltro('recebido',this)">Recebido</div>
       <div class="fbtn" data-f="todos" onclick="cpSetFiltro('todos',this)">Todos</div>
@@ -589,7 +589,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
         <div class="field"><label>Item caro a partir de (R$)</label><input type="number" id="cpParCaro" value="300" inputmode="numeric"></div>
         <div class="field"><label>Item barato até (R$)</label><input type="number" id="cpParBarato" value="30" inputmode="numeric"></div>
       </div>
-      <div class="cp-hint" style="margin:-4px 0 10px">O prazo de cada fornecedor vem do cadastro ou das chegadas registradas. Itens já em pedidos enviados ou em trânsito são descontados.</div>
+      <div class="cp-hint" style="margin:-4px 0 10px">O prazo de cada fornecedor vem do cadastro ou das chegadas registradas. Itens em pedidos liberados ou em trânsito são descontados. Pedidos só simulados não contam.</div>
       <button class="btn btn-prim" id="cpBtnCalc" onclick="cpCalcular()">Calcular pedido</button>
     </div>
     <div id="cpGerRes"></div>
@@ -610,7 +610,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fb);min-height:100vh
       <div class="cp-title">Fornecedores</div>
       <button class="cp-mini prim" onclick="cpEditarForn(null)">+ Fornecedor</button>
     </div>
-    <div class="cp-hint" style="margin-bottom:10px">O prazo real é calculado sozinho a partir da data do pedido e da data de entrada da nota de cada pedido recebido.</div>
+    <div class="cp-hint" style="margin-bottom:10px">O prazo real é calculado sozinho: da data em que o pedido foi liberado para faturar até a data de entrada da nota.</div>
     <div class="os-list" id="cpFornLista"></div>
   </div>
 </div>
@@ -2374,7 +2374,7 @@ function showToast(msg,err=false){
 const COMPRAS_USERS = ['Leila','Celso','Antenor','Eduardo'];
 const CP_COL_PED = 'compras_pedidos';
 const CP_COL_FORN = 'compras_fornecedores';
-const CP_STATUS = {rascunho:'Rascunho', enviado:'Enviado', transito:'Em trânsito', recebido:'Recebido', cancelado:'Cancelado'};
+const CP_STATUS = {rascunho:'Simulado', enviado:'Liberado p/ faturar', transito:'Em trânsito', recebido:'Recebido', cancelado:'Cancelado'};
 
 let cpPedidos = [];
 let cpForns = [];
@@ -2435,8 +2435,8 @@ function cpTotais(itens){ let q=0,v=0; itens.forEach(i=>{ q+=cpNum(i.qtd); v+=cp
 function cpFornPorId(id){ return cpForns.find(f=>f.id===id); }
 function cpMediana(arr){ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
 function cpPrazoReal(fornId){
-  const ds = cpPedidos.filter(p=>p.fornId===fornId && p.status==='recebido' && p.dataPedido && p.dataEntradaNF)
-    .map(p=>cpDias(p.dataPedido,p.dataEntradaNF)).filter(d=>d!==null && d>=0);
+  const ds = cpPedidos.filter(p=>p.fornId===fornId && p.status==='recebido' && (p.dataEnvio||p.dataPedido) && p.dataEntradaNF)
+    .map(p=>cpDias(p.dataEnvio||p.dataPedido,p.dataEntradaNF)).filter(d=>d!==null && d>=0);
   return {med:cpMediana(ds), n:ds.length};
 }
 function cpFechar(id){ document.getElementById(id).classList.remove('open'); }
@@ -2478,13 +2478,13 @@ function cpRenderPedidos(){
   const abertos = cpPedidos.filter(p=>['rascunho','enviado','transito'].includes(p.status));
   const atrasados = abertos.filter(p=>p.status!=='rascunho' && p.previsao && p.previsao<hoje);
   const valAberto = abertos.filter(p=>p.status!=='rascunho').reduce((s,p)=>s+cpTotais(cpItens(p)).v,0);
-  const mes = hoje.slice(0,7);
-  const recMes = cpPedidos.filter(p=>p.status==='recebido' && String(p.dataEntradaNF||'').startsWith(mes));
+  const liberados = abertos.filter(p=>p.status!=='rascunho');
+  const simulados = abertos.filter(p=>p.status==='rascunho');
   document.getElementById('cpStats').innerHTML =
-    `<div class="stat"><div class="stat-v">${abertos.length}</div><div class="stat-l">Em aberto</div></div>`+
+    `<div class="stat"><div class="stat-v">${liberados.length}</div><div class="stat-l">Liberados / trânsito</div></div>`+
     `<div class="stat"><div class="stat-v" style="color:${atrasados.length?'var(--red)':'var(--ac)'}">${atrasados.length}</div><div class="stat-l">Atrasados</div></div>`+
     `<div class="stat"><div class="stat-v" style="font-size:22px">${cpMoeda(valAberto)}</div><div class="stat-l">A chegar</div></div>`+
-    `<div class="stat"><div class="stat-v">${recMes.length}</div><div class="stat-l">Recebidos no mês</div></div>`;
+    `<div class="stat"><div class="stat-v" style="color:#aaa">${simulados.length}</div><div class="stat-l">Simulados (não contam)</div></div>`;
 
   const q = (document.getElementById('cpBusca').value||'').toLowerCase().trim();
   let lista = cpPedidos.filter(p=>{
@@ -2506,7 +2506,7 @@ function cpRenderPedidos(){
       <span class="cp-st cp-st-${p.status}">${CP_STATUS[p.status]||p.status}</span></div>
       <div class="os-card-b">
         <div class="os-row"><span class="os-lbl">Itens</span><span class="os-val">${t.cod} códigos · ${t.q} un.</span></div>
-        <div class="os-row"><span class="os-lbl">Previsão</span><span class="os-val" style="${atras?'color:var(--red);font-weight:600':''}">${cpDataBR(p.previsao)}${atras?' · ATRASADO':''}</span></div>
+        <div class="os-row"><span class="os-lbl">Previsão</span><span class="os-val" style="${atras?'color:var(--red);font-weight:600':''}">${p.status==='rascunho'?'<span style="color:var(--tx3)">Não liberado ao fornecedor – não conta</span>':cpDataBR(p.previsao)+(atras?' · ATRASADO':'')}</span></div>
         ${p.status==='recebido'?`<div class="os-row"><span class="os-lbl">Chegou</span><span class="os-val">${cpDataBR(p.dataEntradaNF)}${p.nf?' · NF '+cpEsc(p.nf):''}${p.conferencia&&p.conferencia!=='ok'?' · <span style="color:var(--red)">'+(p.conferencia==='parcial'?'faltou item':'divergência')+'</span>':''}</span></div>`:''}
       </div>
       <div class="os-card-f"><span style="font-size:12px;color:var(--tx3)">${cpEsc(p.criadoPor||'')}</span><span class="os-valor">${cpMoeda(t.v)}</span></div>
@@ -2520,7 +2520,7 @@ function cpAbrirDetalhe(id){
   const itens = cpItens(p), t = cpTotais(itens), f = cpFornPorId(p.fornId);
   const linhas = itens.map(i=>`<tr><td>${cpEsc(i.codFab)}${i.codForn?'<br><span style="color:var(--tx3);font-size:11px">'+cpEsc(i.codForn)+'</span>':''}</td><td>${cpEsc(i.desc)}${i.obs?'<br><span style="color:var(--tx3);font-size:11px">'+cpEsc(i.obs)+'</span>':''}</td><td class="n">${cpNum(i.qtd)}</td><td class="n">${cpMoeda(cpNum(i.qtd)*cpNum(i.custo))}</td></tr>`).join('');
   let acoes = '';
-  if(p.status==='rascunho') acoes += `<button class="cp-mini prim" onclick="cpMudarStatus('${p.id}','enviado')">Marcar enviado</button>`;
+  if(p.status==='rascunho') acoes += `<button class="cp-mini prim" onclick="cpMudarStatus('${p.id}','enviado')">Liberar p/ faturar</button>`;
   if(p.status==='enviado') acoes += `<button class="cp-mini prim" onclick="cpMudarStatus('${p.id}','transito')">Em trânsito</button>`;
   if(['enviado','transito'].includes(p.status)) acoes += `<button class="cp-mini prim" style="background:var(--grn);border-color:var(--grn)" onclick="cpAbrirReceber('${p.id}')">Registrar chegada</button>`;
   if(p.status!=='recebido') acoes += `<button class="cp-mini" onclick="cpEditarPedido('${p.id}')">Editar</button>`;
@@ -2538,8 +2538,8 @@ function cpAbrirDetalhe(id){
     <div class="modal-num">Pedido #${cpEsc(p.numero||'')} · <span class="cp-st cp-st-${p.status}">${CP_STATUS[p.status]||p.status}</span></div>
     <div class="msec">
       <div class="cp-kv"><span>Data do pedido</span><span>${cpDataBR(p.dataPedido)}</span></div>
-      <div class="cp-kv"><span>Previsão</span><span>${cpDataBR(p.previsao)}</span></div>
-      ${p.dataEnvio?`<div class="cp-kv"><span>Enviado em</span><span>${cpDataBR(p.dataEnvio)}</span></div>`:''}
+      <div class="cp-kv"><span>Previsão</span><span>${p.status==='rascunho'?'Conta a partir da liberação':cpDataBR(p.previsao)}</span></div>
+      ${p.dataEnvio?`<div class="cp-kv"><span>Liberado em</span><span>${cpDataBR(p.dataEnvio)}</span></div>`:''}
       ${p.status==='recebido'?`<div class="cp-kv"><span>Entrada da NF</span><span>${cpDataBR(p.dataEntradaNF)}${prazo!==null?' ('+prazo+' dias)':''}</span></div>
       <div class="cp-kv"><span>NF</span><span>${cpEsc(p.nf||'—')}${p.valorNF?' · '+cpMoeda(p.valorNF):''}</span></div>
       <div class="cp-kv"><span>Conferência</span><span>${{ok:'Conforme',parcial:'Faltou item',divergente:'Divergência'}[p.conferencia]||'—'}</span></div>`:''}
@@ -2563,7 +2563,12 @@ async function cpMudarStatus(id, st){
   if(st==='cancelado' && !confirm('Cancelar este pedido?')) return;
   if(st==='transito' && p.status==='recebido' && !confirm('Desfazer o registro de chegada?')) return;
   const upd = {status:st, atualizadoPor:usuarioLogado, atualizadoISO:new Date().toISOString()};
-  if(st==='enviado' && !p.dataEnvio) upd.dataEnvio = cpHojeISO();
+  if(st==='enviado' && !p.dataEnvio){
+    upd.dataEnvio = cpHojeISO();
+    const f = cpFornPorId(p.fornId), pr = cpPrazoReal(p.fornId);
+    const dias = pr.med!==null ? Math.round(pr.med) : (f && Number(f.prazo)) || null;
+    if(dias) upd.previsao = cpSomaISO(upd.dataEnvio, dias);
+  }
   try{ await cpFbUpdate(CP_COL_PED, id, upd); Object.assign(p, upd); cpRender(); cpAbrirDetalhe(id); showToast('Pedido: '+CP_STATUS[st]); }
   catch(e){ showToast('Erro: '+e.message, true); }
 }
@@ -2751,8 +2756,8 @@ async function cpSalvarRecebimento(){
   try{
     await cpFbUpdate(CP_COL_PED, p.id, upd); Object.assign(p, upd);
     cpFechar('cpRecOv'); cpRender();
-    const dias = cpDias(p.dataPedido, d);
-    showToast('Chegada registrada'+(dias!==null?' · '+dias+' dias desde o pedido':''));
+    const dias = cpDias(p.dataEnvio||p.dataPedido, d);
+    showToast('Chegada registrada'+(dias!==null?' · '+dias+' dias desde a liberação':''));
   }catch(e){ showToast('Erro: '+e.message, true); }
 }
 
